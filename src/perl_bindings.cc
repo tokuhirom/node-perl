@@ -28,7 +28,42 @@ return ThrowException(Exception::TypeError( \
 String::New("Argument " #I " must be an external"))); \
 Local<External> VAR = Local<External>::Cast(args[I]);
 
-class PerlObject: ObjectWrap {
+class PerlFoo {
+protected:
+    PerlInterpreter *my_perl;
+public:
+    Handle<Value> convert(SV * sv) {
+        HandleScope scope;
+
+        // see xs-src/pack.c in msgpack-perl
+        SvGETMAGIC(sv);
+
+        if (SvPOKp(sv)) {
+            STRLEN len;
+            const char *s = SvPV(sv, len);
+            return scope.Close(v8::String::New(s, len));
+        } else if (SvNOK(sv)) {
+            return scope.Close(v8::Number::New(SvNVX(sv)));
+        } else if (SvIOK(sv)) {
+            return scope.Close(Integer::New(SvIVX(sv)));
+        } else if (SvROK(sv)) {
+            return scope.Close(this->convert_rv(sv));
+        } else if (!SvOK(sv)) {
+            return scope.Close(Undefined());
+        } else if (isGV(sv)) {
+            std::cerr << "Cannot pass GV to v8 world" << std::endl;
+            return scope.Close(Undefined());
+        } else {
+            sv_dump(sv);
+            return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support this type")));
+        }
+        // TODO: return callback function for perl code.
+    }
+
+    Handle<Value> convert_rv(SV * rv);
+};
+
+class PerlObject: ObjectWrap, PerlFoo {
 private:
     SV * sv_;
     PerlInterpreter *my_perl;
@@ -42,6 +77,7 @@ public:
         constructor_template->SetClassName(String::NewSymbol("PerlObject"));
 
         NODE_SET_PROTOTYPE_METHOD(t, "getClassName", PerlObject::getClassName);
+        NODE_SET_PROTOTYPE_METHOD(t, "call", PerlObject::call);
 
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
@@ -62,7 +98,39 @@ public:
     }
     Handle<Value> getClassName() {
         HandleScope scope;
-        return scope.Close(String::New(sv_reftype(sv_,TRUE)));
+        return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+    }
+    static Handle<Value> call(const Arguments& args) {
+        HandleScope scope;
+        return scope.Close(Unwrap<PerlObject>(args.This())->Call(args));
+    }
+    Handle<Value> Call(const Arguments& args) {
+        HandleScope scope;
+        if (!args[0]->IsString()) {
+            // TODO
+            abort();
+        }
+        v8::String::Utf8Value method(args[0]);
+
+        // TODO: pass arguments
+        // TODO: Object#call_list
+        // TODO: Perl#call
+        // TODO: Perl#call_list
+
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        XPUSHs(sv_);
+        PUTBACK;
+        call_method(*method, G_SCALAR);
+        SPAGAIN;
+        SV* retsv = TOPs;
+        Handle<Value> retval = this->convert(retsv);
+        PUTBACK;
+        FREETMPS;
+
+        return scope.Close(retval);
     }
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -81,31 +149,9 @@ public:
         }
         return scope.Close(args.Holder());
     }
-    /*
-    static Handle<Value> New_foo(SV * sv, PerlInterpreter* myp) {
-        HandleScope scope;
-        Handle<Object> o = Object::New();
-        std::cerr << "HOGE" << std::endl;
-        // v8::Persistent<v8::Object>::New(o);
-        Local<FunctionTemplate> t = FunctionTemplate::New(PerlObject::New);
-        Handle<Object> o2 = PerlObject::New();
-        // t->SetClassName(v8::String::New("PerlObject"));
-        // o->SetInternalField(0, External::New(p);
-        // o->SetInternalFieldCount(1);
-        // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
-        // t->InstanceTemplate()->SetInternalFieldCount(1);
-        // o->Empty();
-        std::cerr << "HOGE" << std::endl;
-        (new PerlObject())->Wrap(o);
-        std::cerr << "HOGE" << std::endl;
-        return scope.Close(o);
-    }
-    */
 };
 
-class NodePerl: ObjectWrap {
-private:
-    PerlInterpreter *my_perl;
+class NodePerl: ObjectWrap, PerlFoo {
 
 public:
     static void Init(Handle<Object> target) {
@@ -165,80 +211,55 @@ private:
         return convert(eval_pv(stmt, TRUE));
     }
 
-    Handle<Value> convert(SV * sv) {
-        HandleScope scope;
-
-        // see xs-src/pack.c in msgpack-perl
-        SvGETMAGIC(sv);
-
-        if (SvPOKp(sv)) {
-            STRLEN len;
-            const char *s = SvPV(sv, len);
-            return scope.Close(v8::String::New(s, len));
-        } else if (SvNOK(sv)) {
-            return scope.Close(v8::Number::New(SvNVX(sv)));
-        } else if (SvIOK(sv)) {
-            return scope.Close(Integer::New(SvIVX(sv)));
-        } else if (SvROK(sv)) {
-            return scope.Close(this->convert_rv(SvRV(sv)));
-        } else if (!SvOK(sv)) {
-            return scope.Close(Undefined());
-        } else if (isGV(sv)) {
-            std::cerr << "Cannot pass GV to v8 world" << std::endl;
-            return scope.Close(Undefined());
-        } else {
-            sv_dump(sv);
-            return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support this type")));
-        }
-        // TODO: return callback function for perl code.
-    }
-
-    inline Handle<Value> convert_rv(SV * sv) {
-        HandleScope scope;
-
-        SvGETMAGIC(sv);
-        svtype svt = SvTYPE(sv);
-
-        if (SvOBJECT(sv)) { // blessed object.
-            Local<Value> arg0 = External::New(sv);
-            Local<Value> arg1 = External::New(my_perl);
-            Local<Value> args[] = {arg0, arg1};
-            v8::Handle<v8::Object> retval(
-                PerlObject::constructor_template->GetFunction()->NewInstance(2, args)
-            );
-            return scope.Close(retval);
-        } else if (svt == SVt_PVHV) {
-            HV* hval = (HV*)sv;
-            HE* he;
-            v8::Local<v8::Object> retval = v8::Object::New();
-            while ((he = hv_iternext(hval))) {
-                retval->Set(
-                    this->convert(hv_iterkeysv(he)),
-                    this->convert(hv_iterval(hval, he))
-                );
-            }
-            return scope.Close(retval);
-        } else if (svt == SVt_PVAV) {
-            AV* ary = (AV*)sv;
-            v8::Local<v8::Array> retval = v8::Array::New();
-            int len = av_len(ary) + 1;
-            for (int i=0; i<len; ++i) {
-                SV** svp = av_fetch(ary, i, 0);
-                if (svp) {
-                    retval->Set(v8::Number::New(i), this->convert(*svp));
-                } else {
-                    retval->Set(v8::Number::New(i), Undefined());
-                }
-            }
-            return scope.Close(retval);
-        } else if (svt < SVt_PVAV) {
-            sv_dump(sv);
-            return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support scalarref")));
-        } else {
-            return scope.Close(Undefined());
-        }
-    }
+public:
 };
+
+Handle<Value> PerlFoo::convert_rv(SV * rv) {
+    HandleScope scope;
+
+    SV *sv = SvRV(rv);
+    SvGETMAGIC(sv);
+    svtype svt = SvTYPE(sv);
+
+    if (SvOBJECT(sv)) { // blessed object.
+        Local<Value> arg0 = External::New(rv);
+        Local<Value> arg1 = External::New(my_perl);
+        Local<Value> args[] = {arg0, arg1};
+        v8::Handle<v8::Object> retval(
+            PerlObject::constructor_template->GetFunction()->NewInstance(2, args)
+        );
+        return scope.Close(retval);
+    } else if (svt == SVt_PVHV) {
+        HV* hval = (HV*)sv;
+        HE* he;
+        v8::Local<v8::Object> retval = v8::Object::New();
+        while ((he = hv_iternext(hval))) {
+            retval->Set(
+                this->convert(hv_iterkeysv(he)),
+                this->convert(hv_iterval(hval, he))
+            );
+        }
+        return scope.Close(retval);
+    } else if (svt == SVt_PVAV) {
+        AV* ary = (AV*)sv;
+        v8::Local<v8::Array> retval = v8::Array::New();
+        int len = av_len(ary) + 1;
+        for (int i=0; i<len; ++i) {
+            SV** svp = av_fetch(ary, i, 0);
+            if (svp) {
+                retval->Set(v8::Number::New(i), this->convert(*svp));
+            } else {
+                retval->Set(v8::Number::New(i), Undefined());
+            }
+        }
+        return scope.Close(retval);
+    } else if (svt < SVt_PVAV) {
+        sv_dump(sv);
+        return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support scalarref")));
+    } else {
+        return scope.Close(Undefined());
+    }
+}
 
 Persistent<FunctionTemplate> PerlObject::constructor_template;
 

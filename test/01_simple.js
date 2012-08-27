@@ -15,7 +15,8 @@ test("", function (t) {
 
 test("bless", function (t) {
     var perl = new Perl();
-    var obj = perl.eval("bless [], 'hoge'");
+    var obj = perl.eval("package hoge; sub yo { warn q{yo!}; 5963 } bless [], 'hoge'");
+    t.equivalent(obj.call('yo'), 5963);
     t.equivalent(obj.getClassName(), 'hoge');
     t.end();
 });
