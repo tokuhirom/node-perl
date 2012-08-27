@@ -53,3 +53,30 @@ test("eval", function (t) {
     t.end();
 });
 
+test("func", function (t) {
+    var perl = new Perl();
+    perl.eval("sub foo { 4**2 }");
+    perl.eval("sub bar { return (5,9,6,3) }");
+    t.equivalent(perl.call('foo'), 16);
+    t.equivalent(perl.call('bar'), 3);
+    t.equivalent(perl.callList('bar'), [5,9,6,3]);
+    t.end();
+});
+
+test("gc", function (t) {
+    var gc;
+    try {
+        gc = require("gc");
+    } catch(e) { }
+    if (gc) {
+        var perl = new Perl();
+        perl.eval("sub foo { 4**2 }");
+        perl.eval("sub bar { return (5,9,6,3) }");
+        t.equivalent(perl.call('foo'), 16);
+        t.equivalent(perl.call('bar'), 3);
+        t.equivalent(perl.callList('bar'), [5,9,6,3]);
+        gc();
+    }
+    t.end();
+});
+

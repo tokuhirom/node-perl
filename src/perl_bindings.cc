@@ -106,6 +106,80 @@ public:
         }
     }
 
+    Handle<Value> CallMethod(SV * self, const Arguments& args, bool in_list_context) {
+        HandleScope scope;
+        if (!args[0]->IsString()) {
+            return ThrowException(Exception::Error(String::New("First argument must be string")));
+        }
+        v8::String::Utf8Value method(args[0]);
+
+        // TODO: Perl#class
+        const char *fail = NULL;
+
+        dSP;
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        if (self) {
+            XPUSHs(self);
+        }
+        for (int i=self?1:0; i<args.Length(); i++) {
+            SV * arg = this->js2perl(args[i]);
+            if (!arg) {
+                PUTBACK;
+                SPAGAIN;
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+                return ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
+            }
+            XPUSHs(arg);
+        }
+        PUTBACK;
+        if (in_list_context) {
+            int n = self ? call_method(*method, G_ARRAY|G_EVAL) : call_pv(*method, G_ARRAY|G_EVAL);
+            SPAGAIN;
+            if (SvTRUE(ERRSV)) {
+                POPs;
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+                return ThrowException(this->perl2js(ERRSV));
+            } else {
+                Handle<Array> retval = Array::New();
+                for (int i=0; i<n; i++) {
+                    SV* retsv = POPs;
+                    retval->Set(n-i-1, this->perl2js(retsv));
+                }
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+                return scope.Close(retval);
+            }
+        } else {
+            if (self) {
+                call_method(*method, G_SCALAR|G_EVAL);
+            } else {
+                call_pv(*method, G_SCALAR|G_EVAL);
+            }
+            SPAGAIN;
+            if (SvTRUE(ERRSV)) {
+                POPs;
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+                return ThrowException(this->perl2js(ERRSV));
+            } else {
+                SV* retsv = TOPs;
+                Handle<Value> retval = this->perl2js(retsv);
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+                return scope.Close(retval);
+            }
+        }
+    }
+
     Handle<Value> perl2js_rv(SV * rv);
 };
 
@@ -155,68 +229,7 @@ public:
         return scope.Close(Unwrap<PerlObject>(args.This())->Call(args, true));
     }
     Handle<Value> Call(const Arguments& args, bool in_list_context) {
-        HandleScope scope;
-        if (!args[0]->IsString()) {
-            return ThrowException(Exception::Error(String::New("First argument must be string")));
-        }
-        v8::String::Utf8Value method(args[0]);
-
-        // TODO: Perl#class
-        // TODO: Perl#call
-        // TODO: Perl#call_list
-        const char *fail = NULL;
-
-        dSP;
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-        XPUSHs(sv_);
-        for (int i=1; i<args.Length(); i++) {
-            SV * arg = this->js2perl(args[i]);
-            if (!arg) {
-                PUTBACK;
-                SPAGAIN;
-                PUTBACK;
-                FREETMPS;
-                return ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
-            }
-            XPUSHs(arg);
-        }
-        PUTBACK;
-        if (in_list_context) {
-            int n = call_method(*method, G_ARRAY|G_EVAL);
-            SPAGAIN;
-            if (SvTRUE(ERRSV)) {
-                POPs;
-                PUTBACK;
-                FREETMPS;
-                return ThrowException(this->perl2js(ERRSV));
-            } else {
-                Handle<Array> retval = Array::New();
-                for (int i=0; i<n; i++) {
-                    SV* retsv = POPs;
-                    retval->Set(n-i-1, this->perl2js(retsv));
-                }
-                PUTBACK;
-                FREETMPS;
-                return scope.Close(retval);
-            }
-        } else {
-            call_method(*method, G_SCALAR|G_EVAL);
-            SPAGAIN;
-            if (SvTRUE(ERRSV)) {
-                POPs;
-                PUTBACK;
-                FREETMPS;
-                return ThrowException(this->perl2js(ERRSV));
-            } else {
-                SV* retsv = TOPs;
-                Handle<Value> retval = this->perl2js(retsv);
-                PUTBACK;
-                FREETMPS;
-                return scope.Close(retval);
-            }
-        }
+        return this->CallMethod(this->sv_, args, in_list_context);
     }
 
     static Handle<Value> New(const Arguments& args) {
@@ -244,6 +257,8 @@ public:
     static void Init(Handle<Object> target) {
         Local<FunctionTemplate> t = FunctionTemplate::New(NodePerl::New);
         NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
+        NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerl::call);
+        NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerl::callList);
         t->InstanceTemplate()->SetInternalFieldCount(1);
         target->Set(String::New("Perl"), t->GetFunction());
     }
@@ -294,6 +309,15 @@ public:
 
         Handle<Value> retval = Unwrap<NodePerl>(args.This())->eval(*stmt);
         return scope.Close(retval);
+    }
+
+    static Handle<Value> call(const Arguments& args) {
+        HandleScope scope;
+        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod(NULL, args, false));
+    }
+    static Handle<Value> callList(const Arguments& args) {
+        HandleScope scope;
+        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod(NULL, args, true));
     }
 
 private:
