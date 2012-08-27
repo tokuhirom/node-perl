@@ -32,7 +32,7 @@ class PerlFoo {
 protected:
     PerlInterpreter *my_perl;
 public:
-    Handle<Value> convert(SV * sv) {
+    Handle<Value> perl2js(SV * sv) {
         HandleScope scope;
 
         // see xs-src/pack.c in msgpack-perl
@@ -47,7 +47,7 @@ public:
         } else if (SvIOK(sv)) {
             return scope.Close(Integer::New(SvIVX(sv)));
         } else if (SvROK(sv)) {
-            return scope.Close(this->convert_rv(sv));
+            return scope.Close(this->perl2js_rv(sv));
         } else if (!SvOK(sv)) {
             return scope.Close(Undefined());
         } else if (isGV(sv)) {
@@ -60,7 +60,7 @@ public:
         // TODO: return callback function for perl code.
     }
 
-    Handle<Value> convert_rv(SV * rv);
+    Handle<Value> perl2js_rv(SV * rv);
 };
 
 class PerlObject: ObjectWrap, PerlFoo {
@@ -126,7 +126,7 @@ public:
         call_method(*method, G_SCALAR);
         SPAGAIN;
         SV* retsv = TOPs;
-        Handle<Value> retval = this->convert(retsv);
+        Handle<Value> retval = this->perl2js(retsv);
         PUTBACK;
         FREETMPS;
 
@@ -208,13 +208,13 @@ public:
 
 private:
     Handle<Value> eval(const char *stmt) {
-        return convert(eval_pv(stmt, TRUE));
+        return perl2js(eval_pv(stmt, TRUE));
     }
 
 public:
 };
 
-Handle<Value> PerlFoo::convert_rv(SV * rv) {
+Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
     HandleScope scope;
 
     SV *sv = SvRV(rv);
@@ -235,8 +235,8 @@ Handle<Value> PerlFoo::convert_rv(SV * rv) {
         v8::Local<v8::Object> retval = v8::Object::New();
         while ((he = hv_iternext(hval))) {
             retval->Set(
-                this->convert(hv_iterkeysv(he)),
-                this->convert(hv_iterval(hval, he))
+                this->perl2js(hv_iterkeysv(he)),
+                this->perl2js(hv_iterval(hval, he))
             );
         }
         return scope.Close(retval);
@@ -247,7 +247,7 @@ Handle<Value> PerlFoo::convert_rv(SV * rv) {
         for (int i=0; i<len; ++i) {
             SV** svp = av_fetch(ary, i, 0);
             if (svp) {
-                retval->Set(v8::Number::New(i), this->convert(*svp));
+                retval->Set(v8::Number::New(i), this->perl2js(*svp));
             } else {
                 retval->Set(v8::Number::New(i), Undefined());
             }
