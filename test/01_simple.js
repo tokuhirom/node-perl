@@ -63,6 +63,18 @@ test("func", function (t) {
     t.end();
 });
 
+test("class", function (t) {
+    var perl = new Perl();
+    perl.eval("package Foo; sub foo { 4**2 }");
+    perl.eval("package Foo; sub bar { $_[0]x3 }");
+    perl.eval("package Foo; sub baz { $_[1]*2 }");
+    t.equivalent(perl.getClass('Foo').call('foo'), 16);
+    t.equivalent(perl.getClass('Foo').call('bar'), "FooFooFoo");
+    t.equivalent(perl.getClass('Foo').call('baz', 5), 10);
+    t.equivalent(perl.getClass('Foo').getClassName(), 'Foo');
+    t.end();
+});
+
 test("gc", function (t) {
     var gc;
     try {

@@ -20,8 +20,6 @@ EXTERN_C void xs_init (pTHX);
 using namespace v8;
 using namespace node;
 
-#define TODO() abort()
-
 #define INTERPRETER_NAME "node-perl-simple"
 
 #define REQ_EXT_ARG(I, VAR) \
@@ -218,7 +216,13 @@ public:
     }
     Handle<Value> getClassName() {
         HandleScope scope;
-        return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+        if (SvPOK(sv_)) {
+            STRLEN len;
+            const char * str = SvPV(sv_, len);
+            return scope.Close(String::New(str, len));
+        } else {
+            return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+        }
     }
     static Handle<Value> call(const Arguments& args) {
         HandleScope scope;
@@ -257,6 +261,7 @@ public:
     static void Init(Handle<Object> target) {
         Local<FunctionTemplate> t = FunctionTemplate::New(NodePerl::New);
         NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
+        NODE_SET_PROTOTYPE_METHOD(t, "getClass", NodePerl::getClass);
         NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerl::call);
         NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerl::callList);
         t->InstanceTemplate()->SetInternalFieldCount(1);
@@ -311,6 +316,17 @@ public:
         return scope.Close(retval);
     }
 
+    static Handle<Value> getClass(const Arguments& args) {
+        HandleScope scope;
+        if (!args[0]->IsString()) {
+            return ThrowException(Exception::Error(String::New("Arguments must be string")));
+        }
+        v8::String::Utf8Value stmt(args[0]);
+
+        Handle<Value> retval = Unwrap<NodePerl>(args.This())->getClass(*stmt);
+        return scope.Close(retval);
+    }
+
     static Handle<Value> call(const Arguments& args) {
         HandleScope scope;
         return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod(NULL, args, false));
@@ -321,6 +337,16 @@ public:
     }
 
 private:
+    Handle<Value> getClass(const char *name) {
+        HandleScope scope;
+        Local<Value> arg0 = External::New(sv_2mortal(newSVpv(name, 0)));
+        Local<Value> arg1 = External::New(my_perl);
+        Local<Value> args[] = {arg0, arg1};
+        v8::Handle<v8::Object> retval(
+            PerlObject::constructor_template->GetFunction()->NewInstance(2, args)
+        );
+        return scope.Close(retval);
+    }
     Handle<Value> eval(const char *stmt) {
         return perl2js(eval_pv(stmt, TRUE));
     }
