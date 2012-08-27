@@ -12,3 +12,10 @@ test("", function (t) {
     t.equivalent(perl.eval("reverse 'yappo'"), 'oppay');
     t.end();
 });
+
+test("bless", function (t) {
+    var perl = new Perl();
+    var obj = perl.eval("bless [], 'hoge'");
+    t.equivalent(obj.getClassName(), 'hoge');
+    t.end();
+});
