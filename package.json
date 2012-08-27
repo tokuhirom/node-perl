@@ -1,0 +1,26 @@
+{
+  "name": "perl-simple",
+  "version": "0.0.1",
+  "description": "embed Perl5 to node.js",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "tap": "~0.3.0"
+  },
+  "scripts": {
+    "test": "tap test/*.js",
+    "install": "node-waf clean ; node-waf configure build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tokuhirom/node-perl-simple.git"
+  },
+  "keywords": [
+    "perl"
+  ],
+  "author": "Tokuhiro Matsuno",
+  "license": "MIT"
+}
