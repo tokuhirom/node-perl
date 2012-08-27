@@ -1,5 +1,13 @@
-Simple but useful Perl bindings for node.js
-===========================================
+Simple but useful embed Perl for node.js
+========================================
+
+SYNOPSIS
+--------
+
+    var Perl = require('perl-simple').Perl;
+    var perl = new Perl();
+    var ret = perl.eval("reverse 'yappo'");
+    console.log(ret); // => oppay
 
 Notes
 -----

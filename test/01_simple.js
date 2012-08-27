@@ -9,5 +9,6 @@ test("", function (t) {
     t.equivalent(perl.eval("'hoge'x3"), 'hogehogehoge');
     t.equivalent(perl.eval("+[1,2,3]"), [1,2,3]);
     t.equivalent(perl.eval("+{foo => 4, bar => 5}"), {foo:4, bar:5});
+    t.equivalent(perl.eval("reverse 'yappo'"), 'oppay');
     t.end();
 });
