@@ -1,0 +1,18 @@
+Simple but useful Perl bindings for node.js
+===========================================
+
+Notes
+-----
+
+  * perl call is a synchronous.
+
+THANKS TO
+---------
+
+Based on https://github.com/hideo55/node-perl.
+
+License
+-------
+
+http://tokuhirom.mit-license.org/
+
