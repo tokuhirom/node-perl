@@ -15,7 +15,7 @@ def configure(conf):
     perl = Options.options.perl
     print('→ the value of perl is %r' % perl)
     conf.env.append_unique('CXXFLAGS',Utils.cmd_output(perl + ' -MExtUtils::Embed -e ccopts').split())
-    conf.env.append_unique('CXXFLAGS',['-Duseithreads'])
+    conf.env.append_unique('CXXFLAGS',['-Duseithreads', '-Duseshrplib', '-g'])
     conf.env.append_unique('LINKFLAGS',Utils.cmd_output(perl + ' -MExtUtils::Embed -e ldopts').split())
 
 def build(bld):

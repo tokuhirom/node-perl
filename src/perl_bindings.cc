@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <dlfcn.h>
 
 #include <EXTERN.h>               /* from the Perl distribution     */
 #include <perl.h>                 /* from the Perl distribution     */
@@ -19,6 +20,7 @@ EXTERN_C void xs_init (pTHX);
 using namespace v8;
 using namespace node;
 
+#define TODO() abort()
 
 #define INTERPRETER_NAME "node-perl-simple"
 
@@ -31,6 +33,9 @@ Local<External> VAR = Local<External>::Cast(args[I]);
 class PerlFoo {
 protected:
     PerlInterpreter *my_perl;
+
+    PerlFoo(): my_perl(NULL) { }
+    PerlFoo(PerlInterpreter *myp): my_perl(myp) { }
 public:
     Handle<Value> perl2js(SV * sv) {
         HandleScope scope;
@@ -60,13 +65,53 @@ public:
         // TODO: return callback function for perl code.
     }
 
+    SV* js2perl(Handle<Value> val) const {
+        if (val->IsTrue()) {
+            return &PL_sv_yes;
+        } else if (val->IsFalse()) {
+            return &PL_sv_no;
+        } else if (val->IsString()) {
+            v8::String::Utf8Value method(val);
+            return sv_2mortal(newSVpv(*method, method.length()));
+        } else if (val->IsArray()) {
+            Handle<Array> jsav = Handle<Array>::Cast(val);
+            AV * av = newAV();
+            av_extend(av, jsav->Length());
+            for (int i=0; i<jsav->Length(); ++i) {
+                SV * elem = this->js2perl(jsav->Get(i));
+               av_push(av, SvREFCNT_inc(elem));
+            }
+            return sv_2mortal(newRV_noinc((SV*)av));
+        } else if (val->IsObject()) {
+            Handle<Object> jsobj = Handle<Object>::Cast(val);
+            Handle<Array> keys = jsobj->GetOwnPropertyNames();
+            HV * hv = newHV();
+            hv_ksplit(hv, keys->Length());
+            for (int i=0; i<keys->Length(); ++i) {
+                SV * k = this->js2perl(keys->Get(i));
+                SV * v = this->js2perl(keys->Get(i));
+                hv_store_ent(hv, k, v, 0);
+                // SvREFCNT_dec(k);
+            }
+            return sv_2mortal(newRV_inc((SV*)hv));
+        } else if (val->IsInt32()) {
+            return sv_2mortal(newSViv(val->Int32Value()));
+        } else if (val->IsUint32()) {
+            return sv_2mortal(newSVuv(val->Uint32Value()));
+        } else if (val->IsNumber()) {
+            return sv_2mortal(newSVnv(val->NumberValue()));
+        } else {
+            // RegExp, Date, External
+            return NULL;
+        }
+    }
+
     Handle<Value> perl2js_rv(SV * rv);
 };
 
 class PerlObject: ObjectWrap, PerlFoo {
 private:
     SV * sv_;
-    PerlInterpreter *my_perl;
 
 public:
     static Persistent<FunctionTemplate> constructor_template;
@@ -78,6 +123,7 @@ public:
 
         NODE_SET_PROTOTYPE_METHOD(t, "getClassName", PerlObject::getClassName);
         NODE_SET_PROTOTYPE_METHOD(t, "call", PerlObject::call);
+        NODE_SET_PROTOTYPE_METHOD(t, "callList", PerlObject::callList);
 
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
@@ -86,7 +132,7 @@ public:
         target->Set(String::NewSymbol("PerlObject"), constructor_template->GetFunction());
     }
 
-    PerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), my_perl(myp) {
+    PerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp) {
         SvREFCNT_inc(sv);
     }
     ~PerlObject() {
@@ -102,36 +148,77 @@ public:
     }
     static Handle<Value> call(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<PerlObject>(args.This())->Call(args));
+        return scope.Close(Unwrap<PerlObject>(args.This())->Call(args, false));
     }
-    Handle<Value> Call(const Arguments& args) {
+    static Handle<Value> callList(const Arguments& args) {
+        HandleScope scope;
+        return scope.Close(Unwrap<PerlObject>(args.This())->Call(args, true));
+    }
+    Handle<Value> Call(const Arguments& args, bool in_list_context) {
         HandleScope scope;
         if (!args[0]->IsString()) {
-            // TODO
-            abort();
+            return ThrowException(Exception::Error(String::New("First argument must be string")));
         }
         v8::String::Utf8Value method(args[0]);
 
-        // TODO: pass arguments
-        // TODO: Object#call_list
+        // TODO: Perl#class
         // TODO: Perl#call
         // TODO: Perl#call_list
+        const char *fail = NULL;
 
         dSP;
         ENTER;
         SAVETMPS;
         PUSHMARK(SP);
         XPUSHs(sv_);
+        for (int i=1; i<args.Length(); i++) {
+            SV * arg = this->js2perl(args[i]);
+            if (!arg) {
+                PUTBACK;
+                SPAGAIN;
+                PUTBACK;
+                FREETMPS;
+                return ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
+            }
+            XPUSHs(arg);
+        }
         PUTBACK;
-        call_method(*method, G_SCALAR);
-        SPAGAIN;
-        SV* retsv = TOPs;
-        Handle<Value> retval = this->perl2js(retsv);
-        PUTBACK;
-        FREETMPS;
-
-        return scope.Close(retval);
+        if (in_list_context) {
+            int n = call_method(*method, G_ARRAY|G_EVAL);
+            SPAGAIN;
+            if (SvTRUE(ERRSV)) {
+                POPs;
+                PUTBACK;
+                FREETMPS;
+                return ThrowException(this->perl2js(ERRSV));
+            } else {
+                Handle<Array> retval = Array::New();
+                for (int i=0; i<n; i++) {
+                    SV* retsv = POPs;
+                    retval->Set(n-i-1, this->perl2js(retsv));
+                }
+                PUTBACK;
+                FREETMPS;
+                return scope.Close(retval);
+            }
+        } else {
+            call_method(*method, G_SCALAR|G_EVAL);
+            SPAGAIN;
+            if (SvTRUE(ERRSV)) {
+                POPs;
+                PUTBACK;
+                FREETMPS;
+                return ThrowException(this->perl2js(ERRSV));
+            } else {
+                SV* retsv = TOPs;
+                Handle<Value> retval = this->perl2js(retsv);
+                PUTBACK;
+                FREETMPS;
+                return scope.Close(retval);
+            }
+        }
     }
+
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
 
@@ -156,12 +243,14 @@ class NodePerl: ObjectWrap, PerlFoo {
 public:
     static void Init(Handle<Object> target) {
         Local<FunctionTemplate> t = FunctionTemplate::New(NodePerl::New);
-        NODE_SET_PROTOTYPE_METHOD(t, "_eval", NodePerl::eval);
+        NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
         t->InstanceTemplate()->SetInternalFieldCount(1);
         target->Set(String::New("Perl"), t->GetFunction());
     }
 
-    NodePerl() {
+    NodePerl() : PerlFoo() {
+        // std::cerr << "[Construct Perl]" << std::endl;
+
         char **av = {NULL};
         const char *embedding[] = { "", "-e", "0" };
 
@@ -177,6 +266,7 @@ public:
     }
 
     ~NodePerl() {
+        // std::cerr << "[Destruct Perl]" << std::endl;
         PL_perl_destruct_level = 2;
         perl_destruct(my_perl);
         perl_free(my_perl);
@@ -263,9 +353,33 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
 
 Persistent<FunctionTemplate> PerlObject::constructor_template;
 
+/**
+  * Load lazily libperl for dynamic loaded xs.
+  * I don't know the better way to resolve symbols in xs.
+  * patches welcome.
+  *
+  * And this code is not portable.
+  * patches welcome.
+  */
+static Handle<Value> InitPerl(const Arguments& args) {
+    HandleScope scope;
+
+    void *lib = dlopen("libperl.so", RTLD_LAZY|RTLD_GLOBAL);
+    if (lib) {
+        dlclose(lib);
+        return scope.Close(Undefined());
+    } else {
+        return ThrowException(Exception::Error(String::New(dlerror())));
+    }
+}
 
 extern "C" void init(Handle<Object> target) {
     HandleScope scope;
+
+    {
+        Handle<FunctionTemplate> t = FunctionTemplate::New(InitPerl);
+        target->Set(String::New("InitPerl"), t->GetFunction());
+    }
 
     NodePerl::Init(target);
     PerlObject::Init(target);

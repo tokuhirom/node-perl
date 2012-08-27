@@ -1,0 +1,13 @@
+HACKING
+=======
+
+ExtUtils::Embed
+---------------
+
+Some of the files are generated from ExtUtils::Embed.
+
+Manuals
+-------
+
+read perlapi, perlcall, perlembed.
+
