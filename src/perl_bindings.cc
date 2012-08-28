@@ -255,6 +255,27 @@ public:
     }
 };
 
+class PerlClass: PerlObject {
+public:
+    static Persistent<FunctionTemplate> constructor_template;
+
+    static void Init(Handle<Object> target) {
+        Local<FunctionTemplate> t = FunctionTemplate::New(PerlClass::New);
+        constructor_template = Persistent<FunctionTemplate>::New(t);
+        constructor_template->SetClassName(String::NewSymbol("PerlClass"));
+
+        NODE_SET_PROTOTYPE_METHOD(t, "getClassName", PerlClass::getClassName);
+        NODE_SET_PROTOTYPE_METHOD(t, "call", PerlClass::call);
+        NODE_SET_PROTOTYPE_METHOD(t, "callList", PerlClass::callList);
+
+        Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
+        instance_template->SetInternalFieldCount(1);
+
+        // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
+        target->Set(String::NewSymbol("PerlClass"), constructor_template->GetFunction());
+    }
+};
+
 class NodePerl: ObjectWrap, PerlFoo {
 
 public:
@@ -343,7 +364,7 @@ private:
         Local<Value> arg1 = External::New(my_perl);
         Local<Value> args[] = {arg0, arg1};
         v8::Handle<v8::Object> retval(
-            PerlObject::constructor_template->GetFunction()->NewInstance(2, args)
+            PerlClass::constructor_template->GetFunction()->NewInstance(2, args)
         );
         return scope.Close(retval);
     }
@@ -402,6 +423,7 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
 }
 
 Persistent<FunctionTemplate> PerlObject::constructor_template;
+Persistent<FunctionTemplate> PerlClass::constructor_template;
 
 /**
   * Load lazily libperl for dynamic loaded xs.
@@ -433,5 +455,6 @@ extern "C" void init(Handle<Object> target) {
 
     NodePerl::Init(target);
     PerlObject::Init(target);
+    PerlClass::Init(target);
 }
 

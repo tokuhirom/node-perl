@@ -9,6 +9,62 @@ SYNOPSIS
     var ret = perl.eval("reverse 'yappo'");
     console.log(ret); // => oppay
 
+Classes
+-------
+
+### require('perl-simple').Perl
+
+#### var perl = new Perl()
+
+Create new instance of Perl.
+
+#### var retval = perl.eval(Str code)
+
+evaluate the perl code and get a return value.
+
+#### var klass = perl.getClass(Str name)
+
+Get a class object(Instance of PerlClass) from perl.
+
+#### var val = perl.call(Str funcname, ...args)
+
+Call perl5 function and get a return value in scalar context.
+You get a exception when Perl5 throws exception.
+
+#### var val = perl.callList(str funcname, ...args)
+
+Same as call, but callList calls function in list context.
+
+### require('perl-simple').PerlObject
+
+#### `var name = perl_object.getClassName();`
+
+Get a class name from object.
+
+#### `var val = perl_object.call(...)`
+
+same as Perl#call, but call with an object.
+
+#### `var val = perl_object.callList(...)`
+
+same as Perl#callList, but call with an object.
+
+### require('perl-simple').PerlClass
+
+You can get a instance of this class by Perl#getClass.
+
+#### `var val = perl_class.getClassName()`
+
+Get a class name from class.
+
+#### `var val = perl_class.call()`
+
+same as Perl#call, but call with a class name.
+
+#### `var val = perl_class.callList()`
+
+same as Perl#callList, but call with a class name.
+
 Notes
 -----
 
