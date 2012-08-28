@@ -566,10 +566,12 @@ static Handle<Value> InitPerl(const Arguments& args) {
 extern "C" void init(Handle<Object> target) {
     HandleScope scope;
 
+    /*
     {
         Handle<FunctionTemplate> t = FunctionTemplate::New(InitPerl);
         target->Set(String::New("InitPerl"), t->GetFunction());
     }
+    */
 
     NodePerl::Init(target);
     NodePerlObject::Init(target);
