@@ -6,8 +6,14 @@ SYNOPSIS
 
     var Perl = require('perl-simple').Perl;
     var perl = new Perl();
-    var ret = perl.eval("reverse 'yappo'");
+    var ret = perl.evaluate("reverse 'yappo'");
     console.log(ret); // => oppay
+
+    var perl = new Perl();
+    perl.use('LWP::UserAgent');
+    var ua = perl.getClass('LWP::UserAgent').call('new');
+    var res = ua.call('get', 'http://mixi.jp/');
+    console.log(res.call('as_string'));
 
 Classes
 -------
@@ -18,7 +24,7 @@ Classes
 
 Create new instance of Perl.
 
-#### var retval = perl.eval(Str code)
+#### var retval = perl.evaluate(Str code)
 
 evaluate the perl code and get a return value.
 
@@ -69,6 +75,11 @@ Notes
 -----
 
   * perl call is a synchronous.
+
+Enhancements
+------------
+
+You can implement better interface by Harmony-Proxy.
 
 THANKS TO
 ---------

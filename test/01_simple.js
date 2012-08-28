@@ -4,18 +4,18 @@ var Perl = require('../index.js').Perl;
 test("", function (t) {
     var perl = new Perl();
     t.ok(perl);
-    t.equivalent(perl.eval("3"), 3);
-    t.equivalent(perl.eval("3.14"), 3.14);
-    t.equivalent(perl.eval("'hoge'x3"), 'hogehogehoge');
-    t.equivalent(perl.eval("+[1,2,3]"), [1,2,3]);
-    t.equivalent(perl.eval("+{foo => 4, bar => 5}"), {foo:4, bar:5});
-    t.equivalent(perl.eval("reverse 'yappo'"), 'oppay');
+    t.equivalent(perl.evaluate("3"), 3);
+    t.equivalent(perl.evaluate("3.14"), 3.14);
+    t.equivalent(perl.evaluate("'hoge'x3"), 'hogehogehoge');
+    t.equivalent(perl.evaluate("+[1,2,3]"), [1,2,3]);
+    t.equivalent(perl.evaluate("+{foo => 4, bar => 5}"), {foo:4, bar:5});
+    t.equivalent(perl.evaluate("reverse 'yappo'"), 'oppay');
     t.end();
 });
 
 test("bless", function (t) {
     var perl = new Perl();
-    var obj = perl.eval("package hoge; sub yo { warn q{yo!}; 5963 } sub f2 { warn join(q{...}, @_); }  sub fun2 { shift; return shift()**2 } sub fun3 { (1,2,3,4) } sub fun4 { die } bless [], 'hoge'");
+    var obj = perl.evaluate("package hoge; sub yo { warn q{yo!}; 5963 } sub f2 { warn join(q{...}, @_); }  sub fun2 { shift; return shift()**2 } sub fun3 { (1,2,3,4) } sub fun4 { die } bless [], 'hoge'");
     t.equivalent(obj.call('yo'), 5963);
     t.equivalent(obj.call('fun2', 3), 9);
     t.equivalent(obj.call('fun2', 3), 9);
@@ -39,7 +39,7 @@ test("bless", function (t) {
 test("eval", function (t) {
     t.plan(2);
     var perl = new Perl();
-    var obj = perl.eval("package hoge; sub yo { warn q{yo!}; 5963 } sub f2 { warn join(q{...}, @_); }  sub fun2 { shift; return shift()**2 } sub fun3 { (1,2,3,4) } sub fun4 { die } bless [], 'hoge'");
+    var obj = perl.evaluate("package hoge; sub yo { warn q{yo!}; 5963 } sub f2 { warn join(q{...}, @_); }  sub fun2 { shift; return shift()**2 } sub fun3 { (1,2,3,4) } sub fun4 { die } bless [], 'hoge'");
     try {
         obj.call('fun4');
     } catch (e) {
@@ -55,8 +55,8 @@ test("eval", function (t) {
 
 test("func", function (t) {
     var perl = new Perl();
-    perl.eval("sub foo { 4**2 }");
-    perl.eval("sub bar { return (5,9,6,3) }");
+    perl.evaluate("sub foo { 4**2 }");
+    perl.evaluate("sub bar { return (5,9,6,3) }");
     t.equivalent(perl.call('foo'), 16);
     t.equivalent(perl.call('bar'), 3);
     t.equivalent(perl.callList('bar'), [5,9,6,3]);
@@ -65,9 +65,9 @@ test("func", function (t) {
 
 test("class", function (t) {
     var perl = new Perl();
-    perl.eval("package Foo; sub foo { 4**2 }");
-    perl.eval("package Foo; sub bar { $_[0]x3 }");
-    perl.eval("package Foo; sub baz { $_[1]*2 }");
+    perl.evaluate("package Foo; sub foo { 4**2 }");
+    perl.evaluate("package Foo; sub bar { $_[0]x3 }");
+    perl.evaluate("package Foo; sub baz { $_[1]*2 }");
     t.equivalent(perl.getClass('Foo').call('foo'), 16);
     t.equivalent(perl.getClass('Foo').call('bar'), "FooFooFoo");
     t.equivalent(perl.getClass('Foo').call('baz', 5), 10);
@@ -82,8 +82,8 @@ test("gc", function (t) {
     } catch(e) { }
     if (gc) {
         var perl = new Perl();
-        perl.eval("sub foo { 4**2 }");
-        perl.eval("sub bar { return (5,9,6,3) }");
+        perl.evaluate("sub foo { 4**2 }");
+        perl.evaluate("sub bar { return (5,9,6,3) }");
         t.equivalent(perl.call('foo'), 16);
         t.equivalent(perl.call('bar'), 3);
         t.equivalent(perl.callList('bar'), [5,9,6,3]);

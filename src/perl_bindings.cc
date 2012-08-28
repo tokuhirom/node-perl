@@ -278,7 +278,7 @@ class NodePerl: ObjectWrap, PerlFoo {
 public:
     static void Init(Handle<Object> target) {
         Local<FunctionTemplate> t = FunctionTemplate::New(NodePerl::New);
-        NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
+        NODE_SET_PROTOTYPE_METHOD(t, "evaluate", NodePerl::evaluate);
         NODE_SET_PROTOTYPE_METHOD(t, "getClass", NodePerl::getClass);
         NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerl::call);
         NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerl::callList);
@@ -323,14 +323,14 @@ public:
         return scope.Close(args.Holder());
     }
 
-    static Handle<Value> eval(const Arguments& args) {
+    static Handle<Value> evaluate(const Arguments& args) {
         HandleScope scope;
         if (!args[0]->IsString()) {
             return ThrowException(Exception::Error(String::New("Arguments must be string")));
         }
         v8::String::Utf8Value stmt(args[0]);
 
-        Handle<Value> retval = Unwrap<NodePerl>(args.This())->eval(*stmt);
+        Handle<Value> retval = Unwrap<NodePerl>(args.This())->evaluate(*stmt);
         return scope.Close(retval);
     }
 
@@ -365,7 +365,7 @@ private:
         );
         return scope.Close(retval);
     }
-    Handle<Value> eval(const char *stmt) {
+    Handle<Value> evaluate(const char *stmt) {
         return perl2js(eval_pv(stmt, TRUE));
     }
 
