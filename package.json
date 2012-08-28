@@ -1,5 +1,5 @@
 {
-  "name": "perl-simple",
+  "name": "perl",
   "version": "0.0.1",
   "description": "embed Perl5 to node.js",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "tap": "~0.3.0"
+    "tap": "~0.3.1"
   },
   "scripts": {
     "test": "tap test/*.js",
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/tokuhirom/node-perl-simple.git"
+    "url": "git://github.com/tokuhirom/node-perl.git"
   },
   "keywords": [
     "perl"
