@@ -40,7 +40,7 @@ return ThrowException(Exception::TypeError( \
 String::New("Argument " #I " must be a object"))); \
 Local<Object> VAR = Local<Object>::Cast(args[I]);
 
-// TODO: pass the PerlObject to perl5 world.
+// TODO: pass the NodePerlObject to perl5 world.
 // TODO: blessed() function
 
 class PerlFoo {
@@ -154,36 +154,36 @@ public:
     Handle<Value> perl2js_rv(SV * rv);
 };
 
-class PerlMethod: ObjectWrap, PerlFoo {
+class NodePerlMethod: ObjectWrap, PerlFoo {
 public:
     SV * sv_;
     std::string name_;
 
-    PerlMethod(SV *sv, const char * name, PerlInterpreter *myp): sv_(sv), name_(name), PerlFoo(myp) {
+    NodePerlMethod(SV *sv, const char * name, PerlInterpreter *myp): sv_(sv), name_(name), PerlFoo(myp) {
         SvREFCNT_inc(sv);
     }
-    ~PerlMethod() {
+    ~NodePerlMethod() {
         SvREFCNT_dec(sv_);
     }
 
     static Persistent<FunctionTemplate> constructor_template;
 
     static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(PerlMethod::New);
+        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlMethod::New);
         constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("PerlMethod"));
+        constructor_template->SetClassName(String::NewSymbol("NodePerlMethod"));
 
         /*
-        NODE_SET_PROTOTYPE_METHOD(t, "call", PerlMethod::call);
+        NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerlMethod::call);
         */
-        NODE_SET_PROTOTYPE_METHOD(t, "callList", PerlMethod::callList);
+        NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerlMethod::callList);
 
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
-        instance_template->SetCallAsFunctionHandler(PerlMethod::call, Undefined());
+        instance_template->SetCallAsFunctionHandler(NodePerlMethod::call, Undefined());
 
         // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
-        target->Set(String::NewSymbol("PerlMethod"), constructor_template->GetFunction());
+        target->Set(String::NewSymbol("NodePerlMethod"), constructor_template->GetFunction());
     }
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -197,7 +197,7 @@ public:
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         try {
-            (new PerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
+            (new NodePerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
         } catch (const char *msg) {
             return ThrowException(Exception::Error(String::New(msg)));
         }
@@ -205,18 +205,18 @@ public:
     }
     static Handle<Value> call(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<PerlMethod>(args.This())->Call(args, false));
+        return scope.Close(Unwrap<NodePerlMethod>(args.This())->Call(args, false));
     }
     static Handle<Value> callList(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<PerlMethod>(args.This())->Call(args, true));
+        return scope.Close(Unwrap<NodePerlMethod>(args.This())->Call(args, true));
     }
     Handle<Value> Call(const Arguments& args, bool in_list_context) {
         return this->CallMethod2(this->sv_, name_.c_str(), 0, args, in_list_context);
     }
 };
 
-class PerlObject: protected ObjectWrap, protected PerlFoo {
+class NodePerlObject: protected ObjectWrap, protected PerlFoo {
 protected:
     SV * sv_;
 
@@ -224,18 +224,18 @@ public:
     static Persistent<FunctionTemplate> constructor_template;
 
     static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(PerlObject::New);
+        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlObject::New);
         constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("PerlObject"));
+        constructor_template->SetClassName(String::NewSymbol("NodePerlObject"));
 
-        NODE_SET_PROTOTYPE_METHOD(t, "getClassName", PerlObject::getClassName);
+        NODE_SET_PROTOTYPE_METHOD(t, "getClassName", NodePerlObject::getClassName);
 
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
-        instance_template->SetNamedPropertyHandler(PerlObject::GetNamedProperty);
+        instance_template->SetNamedPropertyHandler(NodePerlObject::GetNamedProperty);
 
         // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
-        target->Set(String::NewSymbol("PerlObject"), constructor_template->GetFunction());
+        target->Set(String::NewSymbol("NodePerlObject"), constructor_template->GetFunction());
     }
 
     static Handle<Value> GetNamedProperty(Local<String> name,
@@ -247,7 +247,7 @@ public:
                             "by non-Proxy object");
         }
 
-        return scope.Close(Unwrap<PerlObject>(info.This())->getNamedProperty(name));
+        return scope.Close(Unwrap<NodePerlObject>(info.This())->getNamedProperty(name));
     }
     Handle<Value> getNamedProperty(Local<String> name) {
         HandleScope scope;
@@ -257,20 +257,20 @@ public:
         Local<Value> arg2 = name;
         Local<Value> args[] = {arg0, arg1, arg2};
         v8::Handle<v8::Object> retval(
-            PerlMethod::constructor_template->GetFunction()->NewInstance(3, args)
+            NodePerlMethod::constructor_template->GetFunction()->NewInstance(3, args)
         );
         return scope.Close(retval);
     }
 
-    PerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp) {
+    NodePerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp) {
         SvREFCNT_inc(sv);
     }
-    ~PerlObject() {
+    ~NodePerlObject() {
         SvREFCNT_dec(sv_);
     }
     static Handle<Value> getClassName(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<PerlObject>(args.This())->getClassName());
+        return scope.Close(Unwrap<NodePerlObject>(args.This())->getClassName());
     }
     Handle<Value> getClassName() {
         HandleScope scope;
@@ -283,10 +283,10 @@ public:
         }
     }
     static SV* getSV(Handle<Object> val) {
-        return Unwrap<PerlObject>(val)->sv_;
+        return Unwrap<NodePerlObject>(val)->sv_;
     }
     static Handle<Value> blessed(Handle<Object> val) {
-        return Unwrap<PerlObject>(val)->blessed();
+        return Unwrap<NodePerlObject>(val)->blessed();
     }
     Handle<Value> blessed() {
         HandleScope scope;
@@ -307,7 +307,7 @@ public:
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         try {
-            (new PerlObject(sv, myp))->Wrap(args.Holder());
+            (new NodePerlObject(sv, myp))->Wrap(args.Holder());
         } catch (const char *msg) {
             return ThrowException(Exception::Error(String::New(msg)));
         }
@@ -315,20 +315,20 @@ public:
     }
 };
 
-class PerlClass: PerlObject {
+class NodePerlClass: NodePerlObject {
 public:
     static Persistent<FunctionTemplate> constructor_template;
 
     static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(PerlClass::New);
+        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlClass::New);
         constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("PerlClass"));
+        constructor_template->SetClassName(String::NewSymbol("NodePerlClass"));
 
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
-        instance_template->SetNamedPropertyHandler(PerlObject::GetNamedProperty);
+        instance_template->SetNamedPropertyHandler(NodePerlObject::GetNamedProperty);
 
-        target->Set(String::NewSymbol("PerlClass"), constructor_template->GetFunction());
+        target->Set(String::NewSymbol("NodePerlClass"), constructor_template->GetFunction());
     }
 };
 
@@ -387,8 +387,8 @@ public:
         HandleScope scope;
         REQ_OBJ_ARG(0, jsobj);
 
-        if (PerlObject::constructor_template->HasInstance(jsobj)) {
-            return scope.Close(PerlObject::blessed(jsobj));
+        if (NodePerlObject::constructor_template->HasInstance(jsobj)) {
+            return scope.Close(NodePerlObject::blessed(jsobj));
         } else {
             return scope.Close(Undefined());
         }
@@ -432,7 +432,7 @@ private:
         Local<Value> arg1 = External::New(my_perl);
         Local<Value> args[] = {arg0, arg1};
         v8::Handle<v8::Object> retval(
-            PerlClass::constructor_template->GetFunction()->NewInstance(2, args)
+            NodePerlClass::constructor_template->GetFunction()->NewInstance(2, args)
         );
         return scope.Close(retval);
     }
@@ -462,11 +462,11 @@ SV* PerlFoo::js2perl(Handle<Value> val) const {
         return sv_2mortal(newRV_noinc((SV*)av));
     } else if (val->IsObject()) {
         Handle<Object> jsobj = Handle<Object>::Cast(val);
-        if (PerlObject::constructor_template->HasInstance(jsobj)) {
-            SV * ret = PerlObject::getSV(jsobj);
+        if (NodePerlObject::constructor_template->HasInstance(jsobj)) {
+            SV * ret = NodePerlObject::getSV(jsobj);
             return ret;
-        } else if (PerlClass::constructor_template->HasInstance(jsobj)) {
-            SV * ret = PerlObject::getSV(jsobj);
+        } else if (NodePerlClass::constructor_template->HasInstance(jsobj)) {
+            SV * ret = NodePerlObject::getSV(jsobj);
             return ret;
         } else {
             Handle<Array> keys = jsobj->GetOwnPropertyNames();
@@ -504,7 +504,7 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
         Local<Value> arg1 = External::New(my_perl);
         Local<Value> args[] = {arg0, arg1};
         v8::Handle<v8::Object> retval(
-            PerlObject::constructor_template->GetFunction()->NewInstance(2, args)
+            NodePerlObject::constructor_template->GetFunction()->NewInstance(2, args)
         );
         return scope.Close(retval);
     } else if (svt == SVt_PVHV) {
@@ -539,9 +539,9 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
     }
 }
 
-Persistent<FunctionTemplate> PerlObject::constructor_template;
-Persistent<FunctionTemplate> PerlMethod::constructor_template;
-Persistent<FunctionTemplate> PerlClass::constructor_template;
+Persistent<FunctionTemplate> NodePerlObject::constructor_template;
+Persistent<FunctionTemplate> NodePerlMethod::constructor_template;
+Persistent<FunctionTemplate> NodePerlClass::constructor_template;
 
 /**
   * Load lazily libperl for dynamic loaded xs.
@@ -572,8 +572,8 @@ extern "C" void init(Handle<Object> target) {
     }
 
     NodePerl::Init(target);
-    PerlObject::Init(target);
-    PerlClass::Init(target);
-    PerlMethod::Init(target);
+    NodePerlObject::Init(target);
+    NodePerlClass::Init(target);
+    NodePerlMethod::Init(target);
 }
 

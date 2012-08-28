@@ -32,44 +32,38 @@ evaluate the perl code and get a return value.
 
 Get a class object(Instance of PerlClass) from perl.
 
-#### var val = perl.call(Str funcname, ...args)
+#### var klass = Perl.blessed(obj)
 
-Call perl5 function and get a return value in scalar context.
-You get a exception when Perl5 throws exception.
+Same as Scalar::Util::blessed.
 
-#### var val = perl.callList(str funcname, ...args)
+#### var val = perl[funcname]
 
-Same as call, but callList calls function in list context.
+Get a PerlMethod object.
 
 ### require('perl-simple').PerlObject
 
-#### `var name = perl_object.getClassName();`
+#### var val = obj[funcname]
 
-Get a class name from object.
-
-#### `var val = perl_object.call(...)`
-
-same as Perl#call, but call with an object.
-
-#### `var val = perl_object.callList(...)`
-
-same as Perl#callList, but call with an object.
+Get a PerlMethod object.
 
 ### require('perl-simple').PerlClass
 
 You can get a instance of this class by Perl#getClass.
 
-#### `var val = perl_class.getClassName()`
+#### var val = klass[funcname]
 
-Get a class name from class.
+Get a PerlMethod object.
 
-#### `var val = perl_class.call()`
+### require('perl-simple').PerlMethod
 
-same as Perl#call, but call with a class name.
+#### var val = method()
 
-#### `var val = perl_class.callList()`
+Call perl5 function and get a return value in scalar context.
+You get a exception when Perl5 throws exception.
 
-same as Perl#callList, but call with a class name.
+#### var val = method.callList()
+
+Same as above, but callList calls function in list context.
 
 Notes
 -----
