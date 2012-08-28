@@ -17,6 +17,7 @@ def configure(conf):
     conf.env.append_unique('CXXFLAGS',Utils.cmd_output(perl + ' -MExtUtils::Embed -e ccopts').split())
     conf.env.append_unique('CXXFLAGS',['-Duseithreads'])
     conf.env.append_unique('LINKFLAGS',Utils.cmd_output(perl + ' -MExtUtils::Embed -e ldopts').split())
+    conf.env.append_unique('LDFLAGS',['-static'])
 
 def build(bld):
     obj = bld.new_task_gen('cxx', 'shlib', 'node_addon')
