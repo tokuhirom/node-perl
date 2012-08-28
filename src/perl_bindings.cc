@@ -72,46 +72,7 @@ public:
         // TODO: return callback function for perl code.
     }
 
-    SV* js2perl(Handle<Value> val) const {
-        if (val->IsTrue()) {
-            return &PL_sv_yes;
-        } else if (val->IsFalse()) {
-            return &PL_sv_no;
-        } else if (val->IsString()) {
-            v8::String::Utf8Value method(val);
-            return sv_2mortal(newSVpv(*method, method.length()));
-        } else if (val->IsArray()) {
-            Handle<Array> jsav = Handle<Array>::Cast(val);
-            AV * av = newAV();
-            av_extend(av, jsav->Length());
-            for (int i=0; i<jsav->Length(); ++i) {
-                SV * elem = this->js2perl(jsav->Get(i));
-               av_push(av, SvREFCNT_inc(elem));
-            }
-            return sv_2mortal(newRV_noinc((SV*)av));
-        } else if (val->IsObject()) {
-            Handle<Object> jsobj = Handle<Object>::Cast(val);
-            Handle<Array> keys = jsobj->GetOwnPropertyNames();
-            HV * hv = newHV();
-            hv_ksplit(hv, keys->Length());
-            for (int i=0; i<keys->Length(); ++i) {
-                SV * k = this->js2perl(keys->Get(i));
-                SV * v = this->js2perl(keys->Get(i));
-                hv_store_ent(hv, k, v, 0);
-                // SvREFCNT_dec(k);
-            }
-            return sv_2mortal(newRV_inc((SV*)hv));
-        } else if (val->IsInt32()) {
-            return sv_2mortal(newSViv(val->Int32Value()));
-        } else if (val->IsUint32()) {
-            return sv_2mortal(newSVuv(val->Uint32Value()));
-        } else if (val->IsNumber()) {
-            return sv_2mortal(newSVnv(val->NumberValue()));
-        } else {
-            // RegExp, Date, External
-            return NULL;
-        }
-    }
+    SV* js2perl(Handle<Value> val) const;
 
     Handle<Value> CallMethod2(const Arguments& args, bool in_list_context) {
         REQ_STR_ARG(0, method);
@@ -315,6 +276,9 @@ public:
             return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
         }
     }
+    static SV* getSV(Handle<Object> val) {
+        return Unwrap<PerlObject>(val)->sv_;
+    }
 
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -450,6 +414,52 @@ private:
 
 public:
 };
+
+SV* PerlFoo::js2perl(Handle<Value> val) const {
+    if (val->IsTrue()) {
+        return &PL_sv_yes;
+    } else if (val->IsFalse()) {
+        return &PL_sv_no;
+    } else if (val->IsString()) {
+        v8::String::Utf8Value method(val);
+        return sv_2mortal(newSVpv(*method, method.length()));
+    } else if (val->IsArray()) {
+        Handle<Array> jsav = Handle<Array>::Cast(val);
+        AV * av = newAV();
+        av_extend(av, jsav->Length());
+        for (int i=0; i<jsav->Length(); ++i) {
+            SV * elem = this->js2perl(jsav->Get(i));
+            av_push(av, SvREFCNT_inc(elem));
+        }
+        return sv_2mortal(newRV_noinc((SV*)av));
+    } else if (val->IsObject()) {
+        Handle<Object> jsobj = Handle<Object>::Cast(val);
+        if (PerlObject::constructor_template->HasInstance(jsobj)) {
+            SV * ret = PerlObject::getSV(jsobj);
+            return ret;
+        } else {
+            Handle<Array> keys = jsobj->GetOwnPropertyNames();
+            HV * hv = newHV();
+            hv_ksplit(hv, keys->Length());
+            for (int i=0; i<keys->Length(); ++i) {
+                SV * k = this->js2perl(keys->Get(i));
+                SV * v = this->js2perl(keys->Get(i));
+                hv_store_ent(hv, k, v, 0);
+                // SvREFCNT_dec(k);
+            }
+            return sv_2mortal(newRV_inc((SV*)hv));
+        }
+    } else if (val->IsInt32()) {
+        return sv_2mortal(newSViv(val->Int32Value()));
+    } else if (val->IsUint32()) {
+        return sv_2mortal(newSVuv(val->Uint32Value()));
+    } else if (val->IsNumber()) {
+        return sv_2mortal(newSVnv(val->NumberValue()));
+    } else {
+        // RegExp, Date, External
+        return NULL;
+    }
+}
 
 Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
     HandleScope scope;

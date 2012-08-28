@@ -19,7 +19,17 @@ test("bless", function (t) {
     } catch (e) {
         t.ok(e.match(/Died/), 'died');
     }
+    console.log(typeof(obj));
     // t.equivalent(obj.getClassName(), 'hoge');
+    console.log(perl);
+    t.end();
+});
+
+test("bless", function (t) {
+    var perl = new Perl();
+    var obj = perl.evaluate("bless [4,6,4,9], 'hoge'");
+    perl.evaluate("use Scalar::Util qw/blessed/; sub p { blessed(shift) }");
+    t.equivalent(perl.call('p', obj), 'hoge');
     console.log(perl);
     t.end();
 });
