@@ -34,6 +34,12 @@ return ThrowException(Exception::TypeError( \
 String::New("Argument " #I " must be a string"))); \
 String::Utf8Value VAR(args[I]->ToString());
 
+#define REQ_OBJ_ARG(I, VAR) \
+if (args.Length() <= (I) || !args[I]->IsObject()) \
+return ThrowException(Exception::TypeError( \
+String::New("Argument " #I " must be a object"))); \
+Local<Object> VAR = Local<Object>::Cast(args[I]);
+
 // TODO: pass the PerlObject to perl5 world.
 // TODO: blessed() function
 
@@ -279,6 +285,16 @@ public:
     static SV* getSV(Handle<Object> val) {
         return Unwrap<PerlObject>(val)->sv_;
     }
+    static Handle<Value> blessed(Handle<Object> val) {
+        return Unwrap<PerlObject>(val)->blessed();
+    }
+    Handle<Value> blessed() {
+        HandleScope scope;
+        if(!(SvROK(sv_) && SvOBJECT(SvRV(sv_)))) {
+            return scope.Close(Undefined());
+        }
+        return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+    }
 
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
@@ -326,6 +342,7 @@ public:
         NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerl::call);
         NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerl::callList);
         t->InstanceTemplate()->SetInternalFieldCount(1);
+        NODE_SET_METHOD(t, "blessed", NodePerl::blessed);
         target->Set(String::New("Perl"), t->GetFunction());
     }
 
@@ -364,6 +381,17 @@ public:
             return ThrowException(Exception::Error(String::New(msg)));
         }
         return scope.Close(args.Holder());
+    }
+
+    static Handle<Value> blessed(const Arguments& args) {
+        HandleScope scope;
+        REQ_OBJ_ARG(0, jsobj);
+
+        if (PerlObject::constructor_template->HasInstance(jsobj)) {
+            return scope.Close(PerlObject::blessed(jsobj));
+        } else {
+            return scope.Close(Undefined());
+        }
     }
 
     static Handle<Value> evaluate(const Arguments& args) {
@@ -435,6 +463,9 @@ SV* PerlFoo::js2perl(Handle<Value> val) const {
     } else if (val->IsObject()) {
         Handle<Object> jsobj = Handle<Object>::Cast(val);
         if (PerlObject::constructor_template->HasInstance(jsobj)) {
+            SV * ret = PerlObject::getSV(jsobj);
+            return ret;
+        } else if (PerlClass::constructor_template->HasInstance(jsobj)) {
             SV * ret = PerlObject::getSV(jsobj);
             return ret;
         } else {

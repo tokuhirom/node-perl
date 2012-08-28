@@ -48,7 +48,6 @@ test("class", function (t) {
     t.equivalent(perl.getClass('Foo').foo(), 16);
     t.equivalent(perl.getClass('Foo').bar(), "FooFooFoo", 'bar');
     t.equivalent(perl.getClass('Foo').baz(5), 10);
-    // t.equivalent(perl.getClass('Foo').getClassName(), 'Foo');
     t.end();
 });
 

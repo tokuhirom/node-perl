@@ -20,7 +20,7 @@ test("bless", function (t) {
         t.ok(e.match(/Died/), 'died');
     }
     console.log(typeof(obj));
-    // t.equivalent(obj.getClassName(), 'hoge');
+    t.equivalent(Perl.blessed(obj), 'hoge');
     console.log(perl);
     t.end();
 });
@@ -29,7 +29,18 @@ test("bless", function (t) {
     var perl = new Perl();
     var obj = perl.evaluate("bless [4,6,4,9], 'hoge'");
     perl.evaluate("use Scalar::Util qw/blessed/; sub p { blessed(shift) }");
+    perl.evaluate("sub nop { shift }");
     t.equivalent(perl.call('p', obj), 'hoge');
+    t.equivalent(perl.call('nop', perl.getClass("YO")), 'YO');
+    console.log(perl);
+    t.end();
+});
+
+test("blessed", function (t) {
+    var perl = new Perl();
+    var obj = perl.evaluate("bless [4,6,4,9], 'hoge'");
+    t.equivalent(Perl.blessed(obj), 'hoge');
+    t.equivalent(Perl.blessed(perl.getClass("YO")), undefined);
     console.log(perl);
     t.end();
 });
