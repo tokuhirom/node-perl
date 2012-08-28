@@ -45,10 +45,10 @@ test("class", function (t) {
     perl.evaluate("package Foo; sub foo { 4**2 }");
     perl.evaluate("package Foo; sub bar { $_[0]x3 }");
     perl.evaluate("package Foo; sub baz { $_[1]*2 }");
-    t.equivalent(perl.getClass('Foo').call('foo'), 16);
-    t.equivalent(perl.getClass('Foo').call('bar'), "FooFooFoo");
-    t.equivalent(perl.getClass('Foo').call('baz', 5), 10);
-    t.equivalent(perl.getClass('Foo').getClassName(), 'Foo');
+    t.equivalent(perl.getClass('Foo').foo(), 16);
+    t.equivalent(perl.getClass('Foo').bar(), "FooFooFoo", 'bar');
+    t.equivalent(perl.getClass('Foo').baz(5), 10);
+    // t.equivalent(perl.getClass('Foo').getClassName(), 'Foo');
     t.end();
 });
 
@@ -61,9 +61,9 @@ test("gc", function (t) {
         var perl = new Perl();
         perl.evaluate("sub foo { 4**2 }");
         perl.evaluate("sub bar { return (5,9,6,3) }");
-        t.equivalent(perl.call('foo'), 16);
-        t.equivalent(perl.call('bar'), 3);
-        t.equivalent(perl.callList('bar'), [5,9,6,3]);
+        t.equivalent(perl.foo(), 16);
+        t.equivalent(perl.bar(), 3);
+        t.equivalent(perl.bar.callList(), [5,9,6,3]);
         gc();
     }
     t.end();

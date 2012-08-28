@@ -113,7 +113,11 @@ public:
         }
     }
 
-    Handle<Value> CallMethod2(SV * self, const char *method, const Arguments& args, bool in_list_context) {
+    Handle<Value> CallMethod2(const Arguments& args, bool in_list_context) {
+        REQ_STR_ARG(0, method);
+        return this->CallMethod2(NULL, *method, 1, args, in_list_context);
+    }
+    Handle<Value> CallMethod2(SV * self, const char *method, int offset, const Arguments& args, bool in_list_context) {
         HandleScope scope;
 
         dSP;
@@ -123,7 +127,7 @@ public:
         if (self) {
             XPUSHs(self);
         }
-        for (int i=self?0:0; i<args.Length(); i++) {
+        for (int i=offset; i<args.Length(); i++) {
             SV * arg = this->js2perl(args[i]);
             if (!arg) {
                 PUTBACK;
@@ -161,76 +165,6 @@ public:
                 call_method(method, G_SCALAR|G_EVAL);
             } else {
                 call_pv(method, G_SCALAR|G_EVAL);
-            }
-            SPAGAIN;
-            if (SvTRUE(ERRSV)) {
-                POPs;
-                PUTBACK;
-                FREETMPS;
-                LEAVE;
-                return ThrowException(this->perl2js(ERRSV));
-            } else {
-                SV* retsv = TOPs;
-                Handle<Value> retval = this->perl2js(retsv);
-                PUTBACK;
-                FREETMPS;
-                LEAVE;
-                return scope.Close(retval);
-            }
-        }
-    }
-    Handle<Value> CallMethod(SV * self, const Arguments& args, bool in_list_context) {
-        HandleScope scope;
-        if (!args[0]->IsString()) {
-            return ThrowException(Exception::Error(String::New("First argument must be string")));
-        }
-        v8::String::Utf8Value method(args[0]);
-
-        dSP;
-        ENTER;
-        SAVETMPS;
-        PUSHMARK(SP);
-        if (self) {
-            XPUSHs(self);
-        }
-        for (int i=self?1:0; i<args.Length(); i++) {
-            SV * arg = this->js2perl(args[i]);
-            if (!arg) {
-                PUTBACK;
-                SPAGAIN;
-                PUTBACK;
-                FREETMPS;
-                LEAVE;
-                return ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
-            }
-            XPUSHs(arg);
-        }
-        PUTBACK;
-        if (in_list_context) {
-            int n = self ? call_method(*method, G_ARRAY|G_EVAL) : call_pv(*method, G_ARRAY|G_EVAL);
-            SPAGAIN;
-            if (SvTRUE(ERRSV)) {
-                POPs;
-                PUTBACK;
-                FREETMPS;
-                LEAVE;
-                return ThrowException(this->perl2js(ERRSV));
-            } else {
-                Handle<Array> retval = Array::New();
-                for (int i=0; i<n; i++) {
-                    SV* retsv = POPs;
-                    retval->Set(n-i-1, this->perl2js(retsv));
-                }
-                PUTBACK;
-                FREETMPS;
-                LEAVE;
-                return scope.Close(retval);
-            }
-        } else {
-            if (self) {
-                call_method(*method, G_SCALAR|G_EVAL);
-            } else {
-                call_pv(*method, G_SCALAR|G_EVAL);
             }
             SPAGAIN;
             if (SvTRUE(ERRSV)) {
@@ -311,7 +245,7 @@ public:
         return scope.Close(Unwrap<PerlMethod>(args.This())->Call(args, true));
     }
     Handle<Value> Call(const Arguments& args, bool in_list_context) {
-        return this->CallMethod2(this->sv_, name_.c_str(), args, in_list_context);
+        return this->CallMethod2(this->sv_, name_.c_str(), 0, args, in_list_context);
     }
 };
 
@@ -351,7 +285,7 @@ public:
     Handle<Value> getNamedProperty(Local<String> name) {
         HandleScope scope;
         v8::String::Utf8Value stmt(name);
-        Local<Value> arg0 = External::New(sv_2mortal(newSVpv(sv_reftype(SvRV(sv_), TRUE), 0)));
+        Local<Value> arg0 = External::New(sv_);
         Local<Value> arg1 = External::New(my_perl);
         Local<Value> arg2 = name;
         Local<Value> args[] = {arg0, arg1, arg2};
@@ -410,27 +344,11 @@ public:
         constructor_template = Persistent<FunctionTemplate>::New(t);
         constructor_template->SetClassName(String::NewSymbol("PerlClass"));
 
-        NODE_SET_PROTOTYPE_METHOD(t, "getClassName", PerlClass::getClassName);
-        NODE_SET_PROTOTYPE_METHOD(t, "call", PerlClass::call);
-        NODE_SET_PROTOTYPE_METHOD(t, "callList", PerlClass::callList);
-
         Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
         instance_template->SetInternalFieldCount(1);
+        instance_template->SetNamedPropertyHandler(PerlObject::GetNamedProperty);
 
-        // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
         target->Set(String::NewSymbol("PerlClass"), constructor_template->GetFunction());
-    }
-
-    static Handle<Value> call(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<PerlClass>(args.This())->Call(args, false));
-    }
-    static Handle<Value> callList(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<PerlClass>(args.This())->Call(args, true));
-    }
-    Handle<Value> Call(const Arguments& args, bool in_list_context) {
-        return this->CallMethod(this->sv_, args, in_list_context);
     }
 };
 
@@ -508,11 +426,11 @@ public:
 
     static Handle<Value> call(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod(NULL, args, false));
+        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod2(args, false));
     }
     static Handle<Value> callList(const Arguments& args) {
         HandleScope scope;
-        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod(NULL, args, true));
+        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod2(args, true));
     }
 
 private:
