@@ -111,9 +111,6 @@ public:
         }
         v8::String::Utf8Value method(args[0]);
 
-        // TODO: Perl#class
-        const char *fail = NULL;
-
         dSP;
         ENTER;
         SAVETMPS;
