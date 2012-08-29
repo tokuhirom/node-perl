@@ -1,6 +1,6 @@
 {
   "name": "perl",
-  "version": "0.0.2",
+  "version": "1.0.0",
   "description": "embed Perl5 to node.js",
   "main": "index.js",
   "directories": {
