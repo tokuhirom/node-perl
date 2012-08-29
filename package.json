@@ -12,7 +12,7 @@
   },
   "scripts": {
     "test": "tap test/*.js",
-    "install": "node-waf clean ; node-waf configure build"
+    "install": "node-gyp clean ; node-gyp configure build"
   },
   "repository": {
     "type": "git",
