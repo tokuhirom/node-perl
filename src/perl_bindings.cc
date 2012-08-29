@@ -1,5 +1,6 @@
 #define BUILDING_NODE_EXTENSION
 
+
 #include <node.h>
 #include <string>
 #include <vector>
@@ -8,7 +9,9 @@
 
 #include <EXTERN.h>               /* from the Perl distribution     */
 #include <perl.h>                 /* from the Perl distribution     */
+#include <embed.h>
 #include "ppport.h"
+#include "config.h"
 
 #ifdef New
 #undef New
@@ -554,24 +557,24 @@ Persistent<FunctionTemplate> NodePerlClass::constructor_template;
 static Handle<Value> InitPerl(const Arguments& args) {
     HandleScope scope;
 
-    void *lib = dlopen("libperl.so", RTLD_LAZY|RTLD_GLOBAL);
+    void *lib = dlopen(LIBPERL, RTLD_LAZY|RTLD_GLOBAL);
     if (lib) {
         dlclose(lib);
         return scope.Close(Undefined());
     } else {
-        return ThrowException(Exception::Error(String::New(dlerror())));
+        std::cerr << dlerror() << std::endl;
+        return scope.Close(Undefined());
+        // return ThrowException(Exception::Error(String::New(dlerror())));
     }
 }
 
 extern "C" void init(Handle<Object> target) {
     HandleScope scope;
 
-    /*
     {
         Handle<FunctionTemplate> t = FunctionTemplate::New(InitPerl);
         target->Set(String::New("InitPerl"), t->GetFunction());
     }
-    */
 
     NodePerl::Init(target);
     NodePerlObject::Init(target);

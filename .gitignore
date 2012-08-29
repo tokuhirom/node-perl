@@ -1,3 +1,4 @@
 .lock-wscript
 node_modules/
 build/
+src/config.h
