@@ -199,9 +199,10 @@ public:
         REQ_STR_ARG(2, jsname);
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
+        const char *msg;
         try {
             (new NodePerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
-        } catch (const char *msg) {
+        } catch (msg) {
             return ThrowException(Exception::Error(String::New(msg)));
         }
         return scope.Close(args.Holder());
@@ -309,9 +310,10 @@ public:
         REQ_EXT_ARG(1, jsmyp);
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
+        const char *msg;
         try {
             (new NodePerlObject(sv, myp))->Wrap(args.Holder());
-        } catch (const char *msg) {
+        } catch (msg) {
             return ThrowException(Exception::Error(String::New(msg)));
         }
         return scope.Close(args.Holder());
@@ -375,12 +377,13 @@ public:
 
     static Handle<Value> New(const Arguments& args) {
         HandleScope scope;
+        const char *msg;
 
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
         try {
             (new NodePerl())->Wrap(args.Holder());
-        } catch (const char *msg) {
+        } catch (msg) {
             return ThrowException(Exception::Error(String::New(msg)));
         }
         return scope.Close(args.Holder());

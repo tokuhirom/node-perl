@@ -11,9 +11,22 @@
             ],
             'cflags!': [ '-fno-exceptions' ],
             'cflags_cc!': [ '-fno-exceptions' ],
+            'conditions': [
+                ['OS=="mac"', {
+                    'xcode_settings': {
+                        'OTHER_LDFLAGS': [
+                            '<!@(perl -MExtUtils::Embed -e ldopts)'
+                        ],
+                        'OTHER_CFLAGS': [
+                            '<!@(perl -MExtUtils::Embed -e ccopts)',
+                            '<!@(perl utils/libperl.pl)'
+                        ]
+                    },
+                }],
+            ],
             'cflags': [
+                '<!@(perl -MExtUtils::Embed -e ccopts)',
                 '<!@(perl utils/libperl.pl)'
-                '<!@(perl -MExtUtils::Embed -e ccopts)'
             ]
         },
     ]
