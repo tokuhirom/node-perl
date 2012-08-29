@@ -12,11 +12,6 @@
             'cflags!': [ '-fno-exceptions' ],
             'cflags_cc!': [ '-fno-exceptions' ],
             'cflags': [
-                '-fexceptions',
-                '-Duseithreads',
-                '-Duseithread',
-                '-Dusethreads',
-                '-Dusethread',
                 '<!@(perl utils/libperl.pl)'
                 '<!@(perl -MExtUtils::Embed -e ccopts)'
             ]
