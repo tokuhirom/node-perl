@@ -21,6 +21,7 @@
   "keywords": [
     "perl"
   ],
+  "engines" : { "node" : ">=0.6.x" },
   "author": "Tokuhiro Matsuno",
   "license": "MIT"
 }
