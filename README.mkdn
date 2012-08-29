@@ -1,5 +1,5 @@
-Simple but useful embed Perl for node.js
-========================================
+Synchronous but useful embed Perl for node.js
+==============================================
 
 SYNOPSIS
 --------
@@ -66,15 +66,20 @@ You get a exception when Perl5 throws exception.
 
 Same as above, but callList calls function in list context.
 
+Installation
+------------
+
+node-perl requires a perl5 binary built with -fPIC and -Duseshrplib. Normally, linux distribution's system perl is usable.
+
+You can build a perl binary for node-perl with perlbrew command.
+
+    $ PERLBREW_CONFIGURE_FLAGS=-de perlbrew install perl-5.16.1 -Duseshrplib -Duseithreads -Dusethreads -Accflags='-fPIC' -nv
+    $ perlbrew use perl-5.16.1
+
 Notes
 -----
 
   * perl call is a synchronous.
-
-Enhancements
-------------
-
-You can implement better interface by Harmony-Proxy.
 
 THANKS TO
 ---------

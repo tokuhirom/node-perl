@@ -11,12 +11,3 @@ Manuals
 
 read perlapi, perlcall, perlembed.
 
-Installing
-----------
-
-You need to compile Perl5 with -fPIC option. I recommend to use following options to install.
-
-    $ PERLBREW_CONFIGURE_FLAGS=-de perlbrew install perl-5.16.1 -Duseshrplib -Duseithreads -Dusethreads -Accflags='-fPIC' -nv
-
-cc -shared -o dllo.so -Wl,--whole-archive -lperl -Wl,--no-whole-archive `perl -MExtUtils::Embed -e ldopts | perl -pe 's/-lperl//'`
-
