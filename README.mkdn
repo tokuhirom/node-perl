@@ -76,6 +76,10 @@ You can build a perl binary for node-perl with perlbrew command.
     $ PERLBREW_CONFIGURE_FLAGS=-de perlbrew install perl-5.16.1 -Duseshrplib -Duseithreads -Dusethreads -Accflags='-fPIC' -nv
     $ perlbrew use perl-5.16.1
 
+### On OSX
+
+If you got a error while loading libperl.dylib, please set a `DYLD_LIBRARY_PATH` to perl5 library path.
+
 Notes
 -----
 
