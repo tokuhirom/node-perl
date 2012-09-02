@@ -1,7 +1,5 @@
-#define BUILDING_NODE_EXTENSION
+#include "nodeutil.h"
 
-
-#include <node.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -24,27 +22,8 @@ using namespace v8;
 using namespace node;
 
 #define INTERPRETER_NAME "node-perl-simple"
-#define THR_TYPE_ERROR(str) \
-  ThrowException(Exception::TypeError(String::New(str)))
-#define REQ_EXT_ARG(I, VAR) \
-if (args.Length() <= (I) || !args[I]->IsExternal()) \
-return ThrowException(Exception::TypeError( \
-String::New("Argument " #I " must be an external"))); \
-Local<External> VAR = Local<External>::Cast(args[I]);
-#define REQ_STR_ARG(I, VAR) \
-if (args.Length() <= (I) || !args[I]->IsString()) \
-return ThrowException(Exception::TypeError( \
-String::New("Argument " #I " must be a string"))); \
-String::Utf8Value VAR(args[I]->ToString());
-
-#define REQ_OBJ_ARG(I, VAR) \
-if (args.Length() <= (I) || !args[I]->IsObject()) \
-return ThrowException(Exception::TypeError( \
-String::New("Argument " #I " must be a object"))); \
-Local<Object> VAR = Local<Object>::Cast(args[I]);
 
 // TODO: pass the NodePerlObject to perl5 world.
-// TODO: blessed() function
 
 class PerlFoo {
 protected:
@@ -84,7 +63,7 @@ public:
     SV* js2perl(Handle<Value> val) const;
 
     Handle<Value> CallMethod2(const Arguments& args, bool in_list_context) {
-        REQ_STR_ARG(0, method);
+        ARG_STR(0, method);
         return this->CallMethod2(NULL, *method, 1, args, in_list_context);
     }
     Handle<Value> CallMethod2(SV * self, const char *method, int offset, const Arguments& args, bool in_list_context) {
@@ -194,9 +173,9 @@ public:
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
 
-        REQ_EXT_ARG(0, jssv);
-        REQ_EXT_ARG(1, jsmyp);
-        REQ_STR_ARG(2, jsname);
+        ARG_EXT(0, jssv);
+        ARG_EXT(1, jsmyp);
+        ARG_STR(2, jsname);
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
@@ -242,7 +221,7 @@ public:
         HandleScope scope;
 
         if (info.This()->InternalFieldCount() < 1 || info.Data().IsEmpty()) {
-            return THR_TYPE_ERROR("SetNamedProperty intercepted "
+            return THROW_TYPE_ERROR("SetNamedProperty intercepted "
                             "by non-Proxy object");
         }
 
@@ -301,8 +280,8 @@ public:
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
 
-        REQ_EXT_ARG(0, jssv);
-        REQ_EXT_ARG(1, jsmyp);
+        ARG_EXT(0, jssv);
+        ARG_EXT(1, jsmyp);
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlObject(sv, myp))->Wrap(args.Holder());
@@ -376,7 +355,7 @@ public:
 
     static Handle<Value> blessed(const Arguments& args) {
         HandleScope scope;
-        REQ_OBJ_ARG(0, jsobj);
+        ARG_OBJ(0, jsobj);
 
         if (NodePerlObject::constructor_template->HasInstance(jsobj)) {
             return scope.Close(NodePerlObject::blessed(jsobj));
@@ -557,8 +536,6 @@ static Handle<Value> InitPerl(const Arguments& args) {
 }
 
 extern "C" void init(Handle<Object> target) {
-    HandleScope scope;
-
     {
         Handle<FunctionTemplate> t = FunctionTemplate::New(InitPerl);
         target->Set(String::New("InitPerl"), t->GetFunction());
