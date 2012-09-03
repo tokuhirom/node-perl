@@ -1,5 +1,5 @@
-Synchronous but useful embed Perl for node.js
-==============================================
+Synchronous but useful embedded Perl for node.js
+================================================
 
 SYNOPSIS
 --------
@@ -83,7 +83,7 @@ If you got a error while loading libperl.dylib, please set a `DYLD_LIBRARY_PATH`
 Notes
 -----
 
-  * perl call is a synchronous.
+  * The calls to Perl are synchronous ones.
 
 THANKS TO
 ---------
