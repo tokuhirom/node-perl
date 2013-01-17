@@ -4,7 +4,7 @@ Synchronous but useful embedded Perl for node.js
 SYNOPSIS
 --------
 
-    var Perl = require('perl-simple').Perl;
+    var Perl = require('perl').Perl;
     var perl = new Perl();
     var ret = perl.evaluate("reverse 'yappo'");
     console.log(ret); // => oppay
@@ -19,7 +19,7 @@ SYNOPSIS
 Classes
 -------
 
-### require('perl-simple').Perl
+### require('perl').Perl
 
 #### var perl = new Perl()
 
