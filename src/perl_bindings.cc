@@ -467,7 +467,7 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
 
     SV *sv = SvRV(rv);
     SvGETMAGIC(sv);
-    svtype svt = SvTYPE(sv);
+    svtype svt = (svtype)SvTYPE(sv);
 
     if (SvOBJECT(sv)) { // blessed object.
         Local<Value> arg0 = External::New(rv);
