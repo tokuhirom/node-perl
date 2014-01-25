@@ -547,3 +547,4 @@ extern "C" void init(Handle<Object> target) {
     NodePerlMethod::Init(target);
 }
 
+NODE_MODULE(perl, init)
