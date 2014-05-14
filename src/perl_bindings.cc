@@ -444,7 +444,7 @@ SV* PerlFoo::js2perl(Handle<Value> val) const {
             hv_ksplit(hv, keys->Length());
             for (int i=0; i<keys->Length(); ++i) {
                 SV * k = this->js2perl(keys->Get(i));
-                SV * v = this->js2perl(keys->Get(i));
+                SV * v = this->js2perl(jsobj->Get(keys->Get(i)));
                 hv_store_ent(hv, k, v, 0);
                 // SvREFCNT_dec(k);
             }
