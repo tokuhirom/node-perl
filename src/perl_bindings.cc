@@ -55,9 +55,12 @@ public:
             return scope.Close(Undefined());
         } else {
             sv_dump(sv);
-            return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support this type")));
+            ThrowException(Exception::TypeError(String::New("node-perl-simple doesn't support this type")));
+            return scope.Close(Undefined());
         }
         // TODO: return callback function for perl code.
+        // Perl callbacks should be managed by objects.
+        // TODO: Handle async.
     }
 
     SV* js2perl(Handle<Value> val) const;
@@ -84,7 +87,8 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                return ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
+                ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
+                return scope.Close(Undefined());
             }
             XPUSHs(arg);
         }
@@ -97,7 +101,8 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                return ThrowException(this->perl2js(ERRSV));
+                ThrowException(this->perl2js(ERRSV));
+                return scope.Close(Undefined());
             } else {
                 Handle<Array> retval = Array::New();
                 for (int i=0; i<n; i++) {
@@ -121,7 +126,8 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                return ThrowException(this->perl2js(ERRSV));
+                ThrowException(this->perl2js(ERRSV));
+                return scope.Close(Undefined());
             } else {
                 SV* retsv = TOPs;
                 Handle<Value> retval = this->perl2js(retsv);
@@ -189,6 +195,7 @@ public:
         HandleScope scope;
         return scope.Close(Unwrap<NodePerlMethod>(args.This())->Call(args, true));
     }
+
     Handle<Value> Call(const Arguments& args, bool in_list_context) {
         return this->CallMethod2(this->sv_, name_.c_str(), 0, args, in_list_context);
     }
@@ -221,8 +228,8 @@ public:
         HandleScope scope;
 
         if (info.This()->InternalFieldCount() < 1 || info.Data().IsEmpty()) {
-            return THROW_TYPE_ERROR("SetNamedProperty intercepted "
-                            "by non-Proxy object");
+            ThrowException(Exception::Error(String::New("SetNamedProperty intercepted by non-Proxy object")));
+            return scope.Close(Undefined());
         }
 
         return scope.Close(Unwrap<NodePerlObject>(info.This())->getNamedProperty(name));
@@ -367,8 +374,9 @@ public:
     static Handle<Value> evaluate(const Arguments& args) {
         HandleScope scope;
         if (!args[0]->IsString()) {
-            return ThrowException(Exception::Error(String::New("Arguments must be string")));
-        }
+            ThrowException(Exception::Error(String::New("Arguments must be string")));
+            return scope.Close(Undefined());
+	}
         v8::String::Utf8Value stmt(args[0]);
 
         Handle<Value> retval = Unwrap<NodePerl>(args.This())->evaluate(*stmt);
@@ -378,7 +386,8 @@ public:
     static Handle<Value> getClass(const Arguments& args) {
         HandleScope scope;
         if (!args[0]->IsString()) {
-            return ThrowException(Exception::Error(String::New("Arguments must be string")));
+            ThrowException(Exception::Error(String::New("Arguments must be string")));
+            return scope.Close(Undefined());
         }
         v8::String::Utf8Value stmt(args[0]);
 
@@ -503,7 +512,8 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
         return scope.Close(retval);
     } else if (svt < SVt_PVAV) {
         sv_dump(sv);
-        return ThrowException(Exception::Error(String::New("node-perl-simple doesn't support scalarref")));
+        ThrowException(Exception::Error(String::New("node-perl-simple doesn't support scalarref")));
+        return scope.Close(Undefined());
     } else {
         return scope.Close(Undefined());
     }
@@ -548,3 +558,4 @@ extern "C" void init(Handle<Object> target) {
 }
 
 NODE_MODULE(perl, init)
+
