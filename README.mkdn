@@ -1,6 +1,8 @@
 Synchronous but useful embedded Perl for node.js
 ================================================
 
+<B>This module is still working, but @tokuhirom don't want to maintain this module. MAINTAINER needed! Please contact me at github issues.</B>
+
 SYNOPSIS
 --------
 
