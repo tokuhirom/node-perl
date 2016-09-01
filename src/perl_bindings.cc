@@ -32,8 +32,8 @@ protected:
     PerlFoo(): my_perl(NULL) { }
     PerlFoo(PerlInterpreter *myp): my_perl(myp) { }
 public:
-    Handle<Value> perl2js(SV * sv) {
-        HandleScope scope;
+    v8::Local<v8::Value> perl2js(SV * sv) {
+        Nan::EscapableHandleScope scope;
 
         // see xs-src/pack.c in msgpack-perl
         SvGETMAGIC(sv);
@@ -41,36 +41,36 @@ public:
         if (SvPOKp(sv)) {
             STRLEN len;
             const char *s = SvPV(sv, len);
-            return scope.Close(v8::String::New(s, len));
+            return scope.Escape(Nan::New(s, len).ToLocalChecked());
         } else if (SvNOK(sv)) {
-            return scope.Close(v8::Number::New(SvNVX(sv)));
+            return scope.Escape(Nan::New(SvNVX(sv)));
         } else if (SvIOK(sv)) {
-            return scope.Close(Integer::New(SvIVX(sv)));
+            return scope.Escape(Nan::New((double)SvIVX(sv)));
         } else if (SvROK(sv)) {
-            return scope.Close(this->perl2js_rv(sv));
+            return scope.Escape(this->perl2js_rv(sv));
         } else if (!SvOK(sv)) {
-            return scope.Close(Undefined());
+            return scope.Escape(Nan::Undefined());
         } else if (isGV(sv)) {
             std::cerr << "Cannot pass GV to v8 world" << std::endl;
-            return scope.Close(Undefined());
+            return scope.Escape(Nan::Undefined());
         } else {
             sv_dump(sv);
-            ThrowException(Exception::TypeError(String::New("node-perl-simple doesn't support this type")));
-            return scope.Close(Undefined());
+            Nan::ThrowError("node-perl-simple doesn't support this type");
+            return scope.Escape(Nan::Undefined());
         }
         // TODO: return callback function for perl code.
         // Perl callbacks should be managed by objects.
         // TODO: Handle async.
     }
 
-    SV* js2perl(Handle<Value> val) const;
+    SV* js2perl(v8::Local<v8::Value> val) const;
 
-    Handle<Value> CallMethod2(const Arguments& args, bool in_list_context) {
+    v8::Local<v8::Value> CallMethod2(const Nan::FunctionCallbackInfo<v8::Value>& args, bool in_list_context) {
         ARG_STR(0, method);
         return this->CallMethod2(NULL, *method, 1, args, in_list_context);
     }
-    Handle<Value> CallMethod2(SV * self, const char *method, int offset, const Arguments& args, bool in_list_context) {
-        HandleScope scope;
+    v8::Local<v8::Value> CallMethod2(SV * self, const char *method, int offset, const Nan::FunctionCallbackInfo<v8::Value>& args, bool in_list_context) {
+        Nan::EscapableHandleScope scope;
 
         dSP;
         ENTER;
@@ -87,8 +87,8 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                ThrowException(Exception::Error(String::New("There is no way to pass this value to perl world.")));
-                return scope.Close(Undefined());
+                Nan::ThrowError("There is no way to pass this value to perl world.");
+                return scope.Escape(Nan::Undefined());
             }
             XPUSHs(arg);
         }
@@ -101,8 +101,8 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                ThrowException(this->perl2js(ERRSV));
-                return scope.Close(Undefined());
+                Nan::ThrowError(this->perl2js(ERRSV));
+                return scope.Escape(Nan::Undefined());
             } else {
                 Handle<Array> retval = Array::New();
                 for (int i=0; i<n; i++) {
@@ -112,7 +112,7 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                return scope.Close(retval);
+                return scope.Escape(retval);
             }
         } else {
             if (self) {
@@ -126,20 +126,20 @@ public:
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                ThrowException(this->perl2js(ERRSV));
-                return scope.Close(Undefined());
+                Nan::ThrowError(this->perl2js(ERRSV));
+                return scope.Escape(Nan::Undefined());
             } else {
                 SV* retsv = TOPs;
-                Handle<Value> retval = this->perl2js(retsv);
+                v8::Local<v8::Value> retval = this->perl2js(retsv);
                 PUTBACK;
                 FREETMPS;
                 LEAVE;
-                return scope.Close(retval);
+                return scope.Escape(retval);
             }
         }
     }
 
-    Handle<Value> perl2js_rv(SV * rv);
+    v8::Local<v8::Value> perl2js_rv(SV * rv);
 };
 
 class NodePerlMethod: ObjectWrap, PerlFoo {
@@ -154,27 +154,19 @@ public:
         SvREFCNT_dec(sv_);
     }
 
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<v8::FunctionTemplate> constructor;
 
-    static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlMethod::New);
-        constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("NodePerlMethod"));
+    static void Init(v8::Local<v8::Object> target) {
+        v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(New);
+        t->SetClassName(Nan::New("NodePerlMethod").ToLocalChecked());
+        t->InstanceTemplate()->SetInternalFieldCount(1);
 
-        /*
-        NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerlMethod::call);
-        */
-        NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerlMethod::callList);
+        Nan::SetPrototypeMethod(t, "callList", NodePerlMethod::callList);
 
-        Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
-        instance_template->SetInternalFieldCount(1);
-        instance_template->SetCallAsFunctionHandler(NodePerlMethod::call, Undefined());
-
-        // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
-        target->Set(String::NewSymbol("NodePerlMethod"), constructor_template->GetFunction());
+        target->Set(Nan::New("NodePerlMethod").ToLocalChecked(), t->GetFunction());
     }
-    static Handle<Value> New(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
 
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
@@ -185,18 +177,18 @@ public:
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
-        return scope.Close(args.Holder());
+        return scope.Escape(args.Holder());
     }
-    static Handle<Value> call(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<NodePerlMethod>(args.This())->Call(args, false));
+    static v8::Local<v8::Value> call(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
+        return scope.Escape(Unwrap<NodePerlMethod>(args.This())->Call(args, false));
     }
-    static Handle<Value> callList(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<NodePerlMethod>(args.This())->Call(args, true));
+    static v8::Local<v8::Value> callList(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
+        return scope.Escape(Unwrap<NodePerlMethod>(args.This())->Call(args, true));
     }
 
-    Handle<Value> Call(const Arguments& args, bool in_list_context) {
+    v8::Local<v8::Value> Call(const Nan::FunctionCallbackInfo<v8::Value>& args, bool in_list_context) {
         return this->CallMethod2(this->sv_, name_.c_str(), 0, args, in_list_context);
     }
 };
@@ -206,45 +198,40 @@ protected:
     SV * sv_;
 
 public:
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<v8::FunctionTemplate> constructor;
 
-    static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlObject::New);
-        constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("NodePerlObject"));
+    static void Init(v8::Local<v8::Object> target) {
+        v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(New);
+        t->SetClassName(Nan::New("NodePerlObject").ToLocalChecked());
+        t->InstanceTemplate()->SetInternalFieldCount(1);
 
-        NODE_SET_PROTOTYPE_METHOD(t, "getClassName", NodePerlObject::getClassName);
+        Nan::SetPrototypeMethod(t, "getClassName", NodePerlObject::getClassName);
 
-        Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
-        instance_template->SetInternalFieldCount(1);
-        instance_template->SetNamedPropertyHandler(NodePerlObject::GetNamedProperty);
-
-        // NODE_SET_PROTOTYPE_METHOD(t, "eval", NodePerl::eval);
-        target->Set(String::NewSymbol("NodePerlObject"), constructor_template->GetFunction());
+        target->Set(Nan::New("NodePerlObject").ToLocalChecked(), t->GetFunction());
     }
 
-    static Handle<Value> GetNamedProperty(Local<String> name,
+    static v8::Local<v8::Value> GetNamedProperty(Local<String> name,
                           const AccessorInfo &info) {
-        HandleScope scope;
+        Nan::EscapableHandleScope scope;
 
         if (info.This()->InternalFieldCount() < 1 || info.Data().IsEmpty()) {
-            ThrowException(Exception::Error(String::New("SetNamedProperty intercepted by non-Proxy object")));
-            return scope.Close(Undefined());
+            Nan::ThrowError("SetNamedProperty intercepted by non-Proxy object");
+            return scope.Escape(Nan::Undefined());
         }
 
-        return scope.Close(Unwrap<NodePerlObject>(info.This())->getNamedProperty(name));
+        return scope.Escape(Unwrap<NodePerlObject>(info.This())->getNamedProperty(name));
     }
-    Handle<Value> getNamedProperty(Local<String> name) {
-        HandleScope scope;
+    v8::Local<v8::Value> getNamedProperty(Local<String> name) {
+        Nan::EscapableHandleScope scope;
         v8::String::Utf8Value stmt(name);
-        Local<Value> arg0 = External::New(sv_);
-        Local<Value> arg1 = External::New(my_perl);
+        Local<Value> arg0 = External::Cast(sv_)->Value();
+        Local<Value> arg1 = External::Cast(my_perl)->Value();
         Local<Value> arg2 = name;
         Local<Value> args[] = {arg0, arg1, arg2};
         v8::Handle<v8::Object> retval(
-            NodePerlMethod::constructor_template->GetFunction()->NewInstance(3, args)
+            Nan::New(NodePerlMethod::constructor)->GetFunction()->NewInstance(3, args)
         );
-        return scope.Close(retval);
+        return scope.Escape(retval);
     }
 
     NodePerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp) {
@@ -253,36 +240,36 @@ public:
     ~NodePerlObject() {
         SvREFCNT_dec(sv_);
     }
-    static Handle<Value> getClassName(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<NodePerlObject>(args.This())->getClassName());
+    static v8::Local<v8::Value> getClassName(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
+        return scope.Escape(Unwrap<NodePerlObject>(args.This())->getClassName());
     }
-    Handle<Value> getClassName() {
-        HandleScope scope;
+    v8::Local<v8::Value> getClassName() {
+        Nan::EscapableHandleScope scope;
         if (SvPOK(sv_)) {
             STRLEN len;
             const char * str = SvPV(sv_, len);
-            return scope.Close(String::New(str, len));
+            return scope.Escape(Nan::New(str, len).ToLocalChecked());
         } else {
-            return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+            return scope.Escape(Nan::New(sv_reftype(SvRV(sv_),TRUE)).ToLocalChecked());
         }
     }
-    static SV* getSV(Handle<Object> val) {
+    static SV* getSV(v8::Local<v8::Object> val) {
         return Unwrap<NodePerlObject>(val)->sv_;
     }
-    static Handle<Value> blessed(Handle<Object> val) {
+    static v8::Local<v8::Value> blessed(v8::Local<v8::Object> val) {
         return Unwrap<NodePerlObject>(val)->blessed();
     }
-    Handle<Value> blessed() {
-        HandleScope scope;
+    v8::Local<v8::Value> blessed() {
+        Nan::EscapableHandleScope scope;
         if(!(SvROK(sv_) && SvOBJECT(SvRV(sv_)))) {
-            return scope.Close(Undefined());
+            return scope.Escape(Nan::Undefined());
         }
-        return scope.Close(String::New(sv_reftype(SvRV(sv_),TRUE)));
+        return scope.Escape(Nan::New(sv_reftype(SvRV(sv_),TRUE).ToLocalChecked()));
     }
 
-    static Handle<Value> New(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
 
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
@@ -292,39 +279,40 @@ public:
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlObject(sv, myp))->Wrap(args.Holder());
-        return scope.Close(args.Holder());
+        return scope.Escape(args.Holder());
     }
 };
 
 class NodePerlClass: NodePerlObject {
 public:
-    static Persistent<FunctionTemplate> constructor_template;
+    static Nan::Persistent<v8::FunctionTemplate> constructor;
 
-    static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerlClass::New);
-        constructor_template = Persistent<FunctionTemplate>::New(t);
-        constructor_template->SetClassName(String::NewSymbol("NodePerlClass"));
+    static void Init(v8::Local<v8::Object> target) {
+        v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(New);
+        t->SetClassName(Nan::New("NodePerlClass").ToLocalChecked());
+        t->InstanceTemplate()->SetInternalFieldCount(1);
 
-        Local<ObjectTemplate> instance_template = constructor_template->InstanceTemplate();
-        instance_template->SetInternalFieldCount(1);
-        instance_template->SetNamedPropertyHandler(NodePerlObject::GetNamedProperty);
-
-        target->Set(String::NewSymbol("NodePerlClass"), constructor_template->GetFunction());
+        target->Set(Nan::New("NodePerlClass").ToLocalChecked(), t->GetFunction());
     }
 };
 
 class NodePerl: ObjectWrap, PerlFoo {
 
 public:
-    static void Init(Handle<Object> target) {
-        Local<FunctionTemplate> t = FunctionTemplate::New(NodePerl::New);
-        NODE_SET_PROTOTYPE_METHOD(t, "evaluate", NodePerl::evaluate);
-        NODE_SET_PROTOTYPE_METHOD(t, "getClass", NodePerl::getClass);
-        NODE_SET_PROTOTYPE_METHOD(t, "call", NodePerl::call);
-        NODE_SET_PROTOTYPE_METHOD(t, "callList", NodePerl::callList);
+    static void Init(v8::Local<v8::Object> target) {
+        v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(New);
+        t->SetClassName(Nan::New("Perl").ToLocalChecked());
+
+        Nan::SetPrototypeMethod(t, "evaluate", NodePerl::evaluate);
+        Nan::SetPrototypeMethod(t, "getClass", NodePerl::getClass);
+        Nan::SetPrototypeMethod(t, "call", NodePerl::call);
+        Nan::SetPrototypeMethod(t, "callList", NodePerl::callList);
+
         t->InstanceTemplate()->SetInternalFieldCount(1);
-        NODE_SET_METHOD(t, "blessed", NodePerl::blessed);
-        target->Set(String::New("Perl"), t->GetFunction());
+
+        Nan::SetPrototypeMethod(t, "blessed", NodePerl::blessed);
+
+        target->Set(Nan::New("Perl").ToLocalChecked(), t->GetFunction());
     }
 
     NodePerl() : PerlFoo() {
@@ -351,78 +339,78 @@ public:
         perl_free(my_perl);
     }
 
-    static Handle<Value> New(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
 
         if (!args.IsConstructCall())
             return args.Callee()->NewInstance();
         (new NodePerl())->Wrap(args.Holder());
-        return scope.Close(args.Holder());
+        return scope.Escape(args.Holder());
     }
 
-    static Handle<Value> blessed(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> blessed(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
         ARG_OBJ(0, jsobj);
 
-        if (NodePerlObject::constructor_template->HasInstance(jsobj)) {
-            return scope.Close(NodePerlObject::blessed(jsobj));
+        if (Nan::New(NodePerlClass::constructor)->HasInstance(jsobj)) {
+            return scope.Escape(NodePerlObject::blessed(jsobj));
         } else {
-            return scope.Close(Undefined());
+            return scope.Escape(Nan::Undefined());
         }
     }
 
-    static Handle<Value> evaluate(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> evaluate(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
         if (!args[0]->IsString()) {
-            ThrowException(Exception::Error(String::New("Arguments must be string")));
-            return scope.Close(Undefined());
+            Nan::ThrowError("Arguments must be string");
+            return scope.Escape(Nan::Undefined());
 	}
         v8::String::Utf8Value stmt(args[0]);
 
-        Handle<Value> retval = Unwrap<NodePerl>(args.This())->evaluate(*stmt);
-        return scope.Close(retval);
+        v8::Local<v8::Value> retval = Unwrap<NodePerl>(args.This())->evaluate(*stmt);
+        return scope.Escape(retval);
     }
 
-    static Handle<Value> getClass(const Arguments& args) {
-        HandleScope scope;
+    static v8::Local<v8::Value> getClass(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
         if (!args[0]->IsString()) {
-            ThrowException(Exception::Error(String::New("Arguments must be string")));
-            return scope.Close(Undefined());
+            Nan::ThrowError("Arguments must be string");
+            return scope.Escape(Nan::Undefined());
         }
         v8::String::Utf8Value stmt(args[0]);
 
-        Handle<Value> retval = Unwrap<NodePerl>(args.This())->getClass(*stmt);
-        return scope.Close(retval);
+        v8::Local<v8::Value> retval = Unwrap<NodePerl>(args.This())->getClass(*stmt);
+        return scope.Escape(retval);
     }
 
-    static Handle<Value> call(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod2(args, false));
+    static v8::Local<v8::Value> call(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
+        return scope.Escape(Unwrap<NodePerl>(args.This())->CallMethod2(args, false));
     }
-    static Handle<Value> callList(const Arguments& args) {
-        HandleScope scope;
-        return scope.Close(Unwrap<NodePerl>(args.This())->CallMethod2(args, true));
+    static v8::Local<v8::Value> callList(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        Nan::EscapableHandleScope scope;
+        return scope.Escape(Unwrap<NodePerl>(args.This())->CallMethod2(args, true));
     }
 
 private:
-    Handle<Value> getClass(const char *name) {
-        HandleScope scope;
-        Local<Value> arg0 = External::New(sv_2mortal(newSVpv(name, 0)));
-        Local<Value> arg1 = External::New(my_perl);
+    v8::Local<v8::Value> getClass(const char *name) {
+        Nan::EscapableHandleScope scope;
+        Local<Value> arg0 = External::Cast(sv_2mortal(newSVpv(name, 0)))->Value();
+        Local<Value> arg1 = External::Cast(my_perl)->Value();
         Local<Value> args[] = {arg0, arg1};
         v8::Handle<v8::Object> retval(
-            NodePerlClass::constructor_template->GetFunction()->NewInstance(2, args)
+            Nan::New(NodePerlClass::constructor)->GetFunction()->NewInstance(2, args)
         );
-        return scope.Close(retval);
+        return scope.Escape(retval);
     }
-    Handle<Value> evaluate(const char *stmt) {
+    v8::Local<v8::Value> evaluate(const char *stmt) {
         return perl2js(eval_pv(stmt, TRUE));
     }
 
 public:
 };
 
-SV* PerlFoo::js2perl(Handle<Value> val) const {
+SV* PerlFoo::js2perl(v8::Local<v8::Value> val) const {
     if (val->IsTrue()) {
         return &PL_sv_yes;
     } else if (val->IsFalse()) {
@@ -440,11 +428,11 @@ SV* PerlFoo::js2perl(Handle<Value> val) const {
         }
         return sv_2mortal(newRV_noinc((SV*)av));
     } else if (val->IsObject()) {
-        Handle<Object> jsobj = Handle<Object>::Cast(val);
-        if (NodePerlObject::constructor_template->HasInstance(jsobj)) {
+        v8::Local<v8::Object> jsobj = v8::Local<v8::Object>::Cast(val);
+        if (Nan::New(NodePerlObject::constructor)->HasInstance(jsobj)) {
             SV * ret = NodePerlObject::getSV(jsobj);
             return ret;
-        } else if (NodePerlClass::constructor_template->HasInstance(jsobj)) {
+        } else if (Nan::New(NodePerlClass::constructor)->HasInstance(jsobj)) {
             SV * ret = NodePerlObject::getSV(jsobj);
             return ret;
         } else {
@@ -471,21 +459,21 @@ SV* PerlFoo::js2perl(Handle<Value> val) const {
     }
 }
 
-Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
-    HandleScope scope;
+v8::Local<v8::Value> PerlFoo::perl2js_rv(SV * rv) {
+    Nan::EscapableHandleScope scope;
 
     SV *sv = SvRV(rv);
     SvGETMAGIC(sv);
     svtype svt = (svtype)SvTYPE(sv);
 
     if (SvOBJECT(sv)) { // blessed object.
-        Local<Value> arg0 = External::New(rv);
-        Local<Value> arg1 = External::New(my_perl);
+        Local<Value> arg0 = External::Cast(rv)->Value();
+        Local<Value> arg1 = External::Cast(my_perl)->Value();
         Local<Value> args[] = {arg0, arg1};
         v8::Handle<v8::Object> retval(
-            NodePerlObject::constructor_template->GetFunction()->NewInstance(2, args)
+            Nan::New(NodePerlObject::constructor)->GetFunction()->NewInstance(2, args)
         );
-        return scope.Close(retval);
+        return scope.Escape(retval);
     } else if (svt == SVt_PVHV) {
         HV* hval = (HV*)sv;
         HE* he;
@@ -496,7 +484,7 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
                 this->perl2js(hv_iterval(hval, he))
             );
         }
-        return scope.Close(retval);
+        return scope.Escape(retval);
     } else if (svt == SVt_PVAV) {
         AV* ary = (AV*)sv;
         v8::Local<v8::Array> retval = v8::Array::New();
@@ -504,24 +492,24 @@ Handle<Value> PerlFoo::perl2js_rv(SV * rv) {
         for (int i=0; i<len; ++i) {
             SV** svp = av_fetch(ary, i, 0);
             if (svp) {
-                retval->Set(v8::Number::New(i), this->perl2js(*svp));
+                retval->Set(Nan::New(i), this->perl2js(*svp));
             } else {
-                retval->Set(v8::Number::New(i), Undefined());
+                retval->Set(Nan::New(i), Nan::Undefined());
             }
         }
-        return scope.Close(retval);
+        return scope.Escape(retval);
     } else if (svt < SVt_PVAV) {
         sv_dump(sv);
-        ThrowException(Exception::Error(String::New("node-perl-simple doesn't support scalarref")));
-        return scope.Close(Undefined());
+        Nan::ThrowError("node-perl-simple doesn't support scalarref");
+        return scope.Escape(Nan::Undefined());
     } else {
-        return scope.Close(Undefined());
+        return scope.Escape(Nan::Undefined());
     }
 }
 
-Persistent<FunctionTemplate> NodePerlObject::constructor_template;
-Persistent<FunctionTemplate> NodePerlMethod::constructor_template;
-Persistent<FunctionTemplate> NodePerlClass::constructor_template;
+Nan::Persistent<v8::FunctionTemplate> NodePerlObject::constructor;
+Nan::Persistent<v8::FunctionTemplate> NodePerlMethod::constructor;
+Nan::Persistent<v8::FunctionTemplate> NodePerlClass::constructor;
 
 /**
   * Load lazily libperl for dynamic loaded xs.
@@ -531,24 +519,23 @@ Persistent<FunctionTemplate> NodePerlClass::constructor_template;
   * And this code is not portable.
   * patches welcome.
   */
-static Handle<Value> InitPerl(const Arguments& args) {
-    HandleScope scope;
+static v8::Local<v8::Value> InitPerl(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+    Nan::EscapableHandleScope scope;
 
     void *lib = dlopen(LIBPERL, RTLD_LAZY|RTLD_GLOBAL);
     if (lib) {
         dlclose(lib);
-        return scope.Close(Undefined());
+        return scope.Escape(Nan::Undefined());
     } else {
         std::cerr << dlerror() << std::endl;
-        return scope.Close(Undefined());
-        // return ThrowException(Exception::Error(String::New(dlerror())));
+        return scope.Escape(Nan::Undefined());
     }
 }
 
-extern "C" void init(Handle<Object> target) {
+extern "C" void init(v8::Local<v8::Object> target) {
     {
         Handle<FunctionTemplate> t = FunctionTemplate::New(InitPerl);
-        target->Set(String::New("InitPerl"), t->GetFunction());
+        target->Set(Nan::New("InitPerl").ToLocalChecked(), t->GetFunction());
     }
 
     NodePerl::Init(target);
@@ -558,4 +545,3 @@ extern "C" void init(Handle<Object> target) {
 }
 
 NODE_MODULE(perl, init)
-

@@ -6,6 +6,9 @@
                 './src/perl_bindings.cc',
                 './src/perlxsi.c'
             ],
+            "include_dirs" : [
+                "<!(node -e \"require('nan')\")"
+            ],
             'libraries': [
                 '<!@(perl -MExtUtils::Embed -e ldopts)'
             ],
