@@ -33,7 +33,7 @@
 #define ARG_OBJ(I, VAR) \
     if (args.Length() <= (I) || !args[I]->IsObject()) { \
         Nan::ThrowError("Argument " #I " must be a object"); \
-        return Nan::Undefined(); \
+        return; \
     } \
     Local<Object> VAR = Local<Object>::Cast(args[I]);
 
