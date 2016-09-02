@@ -66,7 +66,11 @@ public:
     SV* js2perl(v8::Local<v8::Value> val) const;
 
     v8::Local<v8::Value> CallMethod2(const Nan::FunctionCallbackInfo<v8::Value>& args, bool in_list_context) {
-        ARG_STR(0, method);
+        if (args.Length() <= 0) {
+            Nan::ThrowError("Argument 0 must be a string");
+            return Nan::Undefined();
+        }
+        Nan::Utf8String method(args[0]->ToString());
         return this->CallMethod2(NULL, *method, 1, args, in_list_context);
     }
     v8::Local<v8::Value> CallMethod2(SV * self, const char *method, int offset, const Nan::FunctionCallbackInfo<v8::Value>& args, bool in_list_context) {
@@ -165,11 +169,11 @@ public:
 
         target->Set(Nan::New("NodePerlMethod").ToLocalChecked(), t->GetFunction());
     }
-    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
-        Nan::EscapableHandleScope scope;
-
-        if (!args.IsConstructCall())
-            return args.Callee()->NewInstance();
+    static void New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        if (!args.IsConstructCall()) {
+            args.GetReturnValue().Set(args.Callee()->NewInstance());
+            return;
+        }
 
         ARG_EXT(0, jssv);
         ARG_EXT(1, jsmyp);
@@ -177,7 +181,7 @@ public:
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlMethod(sv, *jsname, myp))->Wrap(args.Holder());
-        return scope.Escape(args.Holder());
+        args.GetReturnValue().Set(args.Holder());
     }
     static void call(const Nan::FunctionCallbackInfo<v8::Value>& args) {
         args.GetReturnValue().Set(Nan::ObjectWrap::Unwrap<NodePerlMethod>(args.This())->Call(args, false));
@@ -268,18 +272,17 @@ public:
         return scope.Escape(Nan::New(sv_reftype(SvRV(sv_),TRUE)).ToLocalChecked());
     }
 
-    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
-        Nan::EscapableHandleScope scope;
-
-        if (!args.IsConstructCall())
-            return args.Callee()->NewInstance();
+    static void New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        if (!args.IsConstructCall()) {
+            args.GetReturnValue().Set(args.Callee()->NewInstance());
+        }
 
         ARG_EXT(0, jssv);
         ARG_EXT(1, jsmyp);
         SV* sv = static_cast<SV*>(jssv->Value());
         PerlInterpreter* myp = static_cast<PerlInterpreter*>(jsmyp->Value());
         (new NodePerlObject(sv, myp))->Wrap(args.Holder());
-        return scope.Escape(args.Holder());
+        args.GetReturnValue().Set(args.Holder());
     }
 };
 
@@ -339,13 +342,12 @@ public:
         perl_free(my_perl);
     }
 
-    static v8::Local<v8::Value> New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
-        Nan::EscapableHandleScope scope;
-
-        if (!args.IsConstructCall())
-            return args.Callee()->NewInstance();
+    static void New(const Nan::FunctionCallbackInfo<v8::Value>& args) {
+        if (!args.IsConstructCall()) {
+            args.GetReturnValue().Set(args.Callee()->NewInstance());
+        }
         (new NodePerl())->Wrap(args.Holder());
-        return scope.Escape(args.Holder());
+        args.GetReturnValue().Set(args.Holder());
     }
 
     static void blessed(const Nan::FunctionCallbackInfo<v8::Value>& args) {

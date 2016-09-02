@@ -14,7 +14,7 @@
 #define ARG_EXT(I, VAR) \
     if (args.Length() <= (I) || !args[I]->IsExternal()) { \
         Nan::ThrowError("Argument " #I " must be an external"); \
-        return Nan::Undefined(); \
+        return; \
     } \
     Local<External> VAR = Local<External>::Cast(args[I]);
 
@@ -26,7 +26,7 @@
 #define ARG_STR(I, VAR) \
     if (args.Length() <= (I)) { \
         Nan::ThrowError("Argument " #I " must be a string"); \
-        return Nan::Undefined(); \
+        return; \
     } \
     Nan::Utf8String VAR(args[I]->ToString());
 
@@ -40,14 +40,14 @@
 #define ARG_INT(I, VAR) \
     if (args.Length() <= (I) || !args[I]->IsInt32()) { \
         Nan::ThrowError("Argument " #I " must be an integer"); \
-        return Nan::Undefined(); \
+        return; \
     } \
     int32_t VAR = args[I]->Int32Value();
 
 #define ARG_BUF(I, VAR) \
     if (args.Length() <= (I) || !Buffer::HasInstance(args[I])) { \
         Nan::ThrowError("Argument " #I " must be a buffer"); \
-        return Nan::Undefined(); \
+        return; \
     } \
     void * VAR = Buffer::Data(args[I]->ToObject());
 
