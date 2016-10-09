@@ -1,8 +1,6 @@
 Synchronous but useful embedded Perl for node.js
 ================================================
 
-<B>This module is still working, but @tokuhirom don't want to maintain this module. MAINTAINER needed! Please contact me at github issues.</B>
-
 SYNOPSIS
 --------
 
@@ -90,10 +88,11 @@ Notes
 THANKS TO
 ---------
 
+Based on https://github.com/tokuhirom/node-perl
+
 Based on https://github.com/hideo55/node-perl.
 
 License
 -------
 
-http://tokuhirom.mit-license.org/
-
+MIT
