@@ -1,4 +1,6 @@
 .lock-wscript
 node_modules/
 build/
-src/config.h
+extern/config.h
+stacktrace-*.log
+.idea/
