@@ -7,14 +7,17 @@
     "test": "test"
   },
   "dependencies": {
-    "nan": "^2.7.0"
+    "bindings": "^1.5.0",
+    "nan": "^2.14.1"
   },
   "devDependencies": {
-    "tap": "~0.3.1"
+    "node-gyp": "^6.1.0",
+    "tap": "^14.10.7"
   },
   "scripts": {
     "test": "tap test/*.js",
-    "install": "node-gyp clean ; node-gyp configure build"
+    "install": "node-gyp clean && node-gyp configure build",
+    "debug": "node-gyp clean && node-gyp configure build --debug"
   },
   "repository": {
     "type": "git",
@@ -24,7 +27,7 @@
     "perl"
   ],
   "engines": {
-    "node": ">=0.6.x"
+    "node": ">=8.9.x"
   },
   "author": "Tokuhiro Matsuno",
   "license": "MIT"

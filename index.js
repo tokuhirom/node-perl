@@ -1,4 +1,4 @@
-var P = require('./build/Release/perl.node');
+var P = require('bindings')('perl');
 P.InitPerl();
 P.Perl.prototype.use = function (name) {
     if (!name.match(/^[A-Za-z0-9_:]+$/)) {

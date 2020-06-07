@@ -106,7 +106,7 @@ public:
 				v8::Local<v8::Array> retval = Nan::New<v8::Array>();
                 for (int i=0; i<n; i++) {
                     SV* retsv = POPs;
-                    retval->Set(n-i-1, this->perl2js(retsv));
+                    Nan::Set(retval, n - i - 1, this->perl2js(retsv));
                 }
                 PUTBACK;
                 FREETMPS;
@@ -146,7 +146,7 @@ public:
     SV * sv_;
     std::string name_;
 
-    NodePerlMethod(SV *sv, const char * name, PerlInterpreter *myp): sv_(sv), name_(name), PerlFoo(myp) {
+    NodePerlMethod(SV *sv, const char * name, PerlInterpreter *myp): PerlFoo(myp), sv_(sv), name_(name) {
         SvREFCNT_inc(sv);
     }
     ~NodePerlMethod() {
@@ -191,8 +191,7 @@ public:
 		else {
 			const int argc = 3;
 			v8::Local<v8::Value> argv[argc] = { info[0], info[1], info[2] };
-			v8::Local<v8::Function> cons = Nan::New(constructor());
-			info.GetReturnValue().Set(cons->NewInstance(argc, argv));
+            info.GetReturnValue().Set(Nan::NewInstance(Nan::New(constructor()), argc, argv).ToLocalChecked());
 		}
     }
     static NAN_METHOD(call) {
@@ -252,18 +251,22 @@ public:
     v8::Local<v8::Value> getNamedProperty(const v8::Local<v8::String> propertyName) const
     {
         Nan::EscapableHandleScope scope;
-        v8::String::Utf8Value stmt(propertyName);
+        Nan::Utf8String stmt(propertyName);
         v8::Local<v8::Value> arg0 = Nan::New<v8::External>(sv_);
         v8::Local<v8::Value> arg1 = Nan::New<v8::External>(my_perl);
         v8::Local<v8::Value> arg2 = propertyName;
         v8::Local<v8::Value> args[] = {arg0, arg1, arg2};
         v8::Local<v8::Object> retval(
-			Nan::New<v8::FunctionTemplate>(NodePerlMethod::constructor_template)->GetFunction()->NewInstance(3, args)
+            Nan::NewInstance(
+                Nan::GetFunction(Nan::New<v8::FunctionTemplate>(NodePerlMethod::constructor_template)).ToLocalChecked(),
+                3,
+                args
+            ).ToLocalChecked()
         );
         return scope.Escape(retval);
     }
 
-    NodePerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp) {
+    NodePerlObject(SV *sv, PerlInterpreter *myp): PerlFoo(myp), sv_(sv) {
         SvREFCNT_inc(sv);
     }
     ~NodePerlObject() {
@@ -382,7 +385,7 @@ public:
 
     static NAN_METHOD(New) {
         if (!info.IsConstructCall())
-            return info.GetReturnValue().Set(info.Callee()->NewInstance());
+            return info.GetReturnValue().Set(Nan::NewInstance(Nan::New(constructor()), 0, {}).ToLocalChecked());
         (new NodePerl())->Wrap(info.Holder());
         return info.GetReturnValue().Set(info.Holder());
     }
@@ -403,7 +406,7 @@ public:
             Nan::ThrowError(v8::Exception::Error(Nan::New("Arguments must be string").ToLocalChecked()));
             return info.GetReturnValue().Set(Nan::Undefined());
 	}
-        v8::String::Utf8Value stmt(info[0]);
+        Nan::Utf8String stmt(info[0]);
 
         v8::Local<v8::Value> retval = Unwrap<NodePerl>(info.This())->evaluate(*stmt);
         return info.GetReturnValue().Set(retval);
@@ -414,7 +417,7 @@ public:
             Nan::ThrowError(v8::Exception::Error(Nan::New("Arguments must be string").ToLocalChecked()));
             return info.GetReturnValue().Set(Nan::Undefined());
         }
-        v8::String::Utf8Value stmt(info[0]);
+        Nan::Utf8String stmt(info[0]);
 
         v8::Local<v8::Value> retval = Unwrap<NodePerl>(info.This())->getClass(*stmt);
         return info.GetReturnValue().Set(retval);
@@ -437,7 +440,11 @@ private:
         v8::Local<v8::Value> arg1 = Nan::New<v8::External>(my_perl);
         v8::Local<v8::Value> info[] = {arg0, arg1};
         v8::Local<v8::Object> retval(
-			Nan::New<v8::FunctionTemplate>(NodePerlClass::constructor_template)->GetFunction()->NewInstance(2, info)
+            Nan::NewInstance(
+                Nan::GetFunction(Nan::New<v8::FunctionTemplate>(NodePerlClass::constructor_template)).ToLocalChecked(),
+                2,
+                info
+            ).ToLocalChecked()
         );
         return scope.Escape(retval);
     }
@@ -454,14 +461,14 @@ SV* PerlFoo::js2perl(v8::Local<v8::Value> val) const {
     } else if (val->IsFalse()) {
         return &PL_sv_no;
     } else if (val->IsString()) {
-        v8::String::Utf8Value method(val);
+        Nan::Utf8String method(val);
         return sv_2mortal(newSVpv(*method, method.length()));
     } else if (val->IsArray()) {
 		v8::Local<v8::Array> jsav = v8::Local<v8::Array>::Cast(val);
         AV * av = newAV();
         av_extend(av, jsav->Length());
-        for (int i=0; i<jsav->Length(); ++i) {
-            SV * elem = this->js2perl(jsav->Get(i));
+        for (unsigned int i=0; i<jsav->Length(); ++i) {
+            SV * elem = this->js2perl(Nan::Get(jsav, i).ToLocalChecked());
             av_push(av, SvREFCNT_inc(elem));
         }
         return sv_2mortal(newRV_noinc((SV*)av));
@@ -475,23 +482,23 @@ SV* PerlFoo::js2perl(v8::Local<v8::Value> val) const {
             SV * ret = NodePerlObject::getSV(jsobj);
             return ret;
         } else {
-			v8::Local<v8::Array> keys = jsobj->GetOwnPropertyNames();
+            v8::Local<v8::Array> keys = Nan::GetOwnPropertyNames(jsobj).ToLocalChecked();
             HV * hv = newHV();
             hv_ksplit(hv, keys->Length());
-            for (int i=0; i<keys->Length(); ++i) {
-                SV * k = this->js2perl(keys->Get(i));
-                SV * v = this->js2perl(jsobj->Get(keys->Get(i)));
+            for (unsigned int i=0; i<keys->Length(); ++i) {
+                SV *k = this->js2perl(Nan::Get(keys, i).ToLocalChecked());
+                SV *v = this->js2perl(Nan::Get(jsobj, Nan::Get(keys, i).ToLocalChecked()).ToLocalChecked());
                 hv_store_ent(hv, k, v, 0);
                 // SvREFCNT_dec(k);
             }
             return sv_2mortal(newRV_inc((SV*)hv));
         }
     } else if (val->IsInt32()) {
-        return sv_2mortal(newSViv(val->Int32Value()));
+        return sv_2mortal(newSViv(Nan::To<int32_t>(val).FromJust()));
     } else if (val->IsUint32()) {
-        return sv_2mortal(newSVuv(val->Uint32Value()));
+        return sv_2mortal(newSVuv(Nan::To<uint32_t>(val).FromJust()));
     } else if (val->IsNumber()) {
-        return sv_2mortal(newSVnv(val->NumberValue()));
+        return sv_2mortal(newSVnv(Nan::To<int>(val).FromJust()));
     } else {
         // RegExp, Date, External
         return NULL;
@@ -510,7 +517,11 @@ v8::Local<v8::Value> PerlFoo::perl2js_rv(SV * rv) {
 		v8::Local<v8::Value> arg1 = Nan::New<v8::External>(my_perl);
 	    v8::Local<v8::Value> args[] = {arg0, arg1};
         v8::Local<v8::Object> retval(
-            Nan::New<v8::FunctionTemplate>(NodePerlObject::constructor_template)->GetFunction()->NewInstance(2, args)
+            Nan::NewInstance(
+                Nan::GetFunction(Nan::New<v8::FunctionTemplate>(NodePerlObject::constructor_template)).ToLocalChecked(),
+                2,
+                args
+            ).ToLocalChecked()
         );
         return scope.Escape(retval);
     } else if (svt == SVt_PVHV) {
@@ -518,7 +529,8 @@ v8::Local<v8::Value> PerlFoo::perl2js_rv(SV * rv) {
         HE* he;
         v8::Local<v8::Object> retval = Nan::New<v8::Object>();
         while ((he = hv_iternext(hval))) {
-            retval->Set(
+            Nan::Set(
+                retval,
                 this->perl2js(hv_iterkeysv(he)),
                 this->perl2js(hv_iterval(hval, he))
             );
@@ -531,9 +543,9 @@ v8::Local<v8::Value> PerlFoo::perl2js_rv(SV * rv) {
         for (int i=0; i<len; ++i) {
             SV** svp = av_fetch(ary, i, 0);
             if (svp) {
-                retval->Set(Nan::New<v8::Number>(i), this->perl2js(*svp));
+                Nan::Set(retval, i, this->perl2js(*svp));
             } else {
-                retval->Set(Nan::New<v8::Number>(i), Nan::Undefined());
+                Nan::Set(retval, i, Nan::Undefined());
             }
         }
         return scope.Escape(retval);
@@ -599,10 +611,11 @@ static NAN_METHOD(InitPerl) {
 #endif
 
 extern "C" NAN_MODULE_INIT(init) {
-    {
-	    v8::Local<v8::FunctionTemplate> t = Nan::New<v8::FunctionTemplate>(InitPerl);
-        target->Set(Nan::New("InitPerl").ToLocalChecked(), t->GetFunction());
-    }
+    Nan::Set(
+        target,
+        Nan::New("InitPerl").ToLocalChecked(),
+        Nan::GetFunction(Nan::New<v8::FunctionTemplate>(InitPerl)).ToLocalChecked()
+    );
 
     NodePerl::Init(target);
     NodePerlObject::Init(target);
