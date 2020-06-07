@@ -1,9 +1,10 @@
-var P = require('./build/Release/perl.node');
-P.InitPerl();
+const P = require('bindings')('perl')
+
 P.Perl.prototype.use = function (name) {
-    if (!name.match(/^[A-Za-z0-9_:]+$/)) {
-        throw new Error("This is not a valid class name : " + name);
-    }
-    return this.evaluate('use ' + name);
-};
-module.exports.Perl = P.Perl;
+  if (!name.match(/^[A-Za-z0-9_:]+$/)) {
+    throw new Error('This is not a valid class name : ' + name)
+  }
+  return this.evaluate('use ' + name)
+}
+
+module.exports.Perl = P.Perl
