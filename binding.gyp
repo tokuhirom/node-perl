@@ -28,7 +28,8 @@
       ],
       "cflags": [
         "<!@(perl -MExtUtils::Embed -e ccopts)",
-        "<!@(perl utils/libperl.pl)"
+        "<!@(perl utils/libperl.pl)",
+        "-Wno-cast-function-type"
       ],
       "ccflags": [
         "-fno-exceptions",
