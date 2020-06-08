@@ -23,7 +23,9 @@
   },
   "scripts": {
     "lint": "./node_modules/.bin/eslint .",
-    "test": "./node_modules/.bin/jest .",
+    "test-jest": "./node_modules/.bin/jest .",
+    "test-tap": "./node_modules/.bin/tap test/*.js",
+    "test": "npm run test-tap",
     "install": "node-gyp clean && node-gyp configure build",
     "debug": "node-gyp clean && node-gyp rebuild --debug"
   },
