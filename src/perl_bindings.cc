@@ -250,7 +250,7 @@ class NodePerlMethod : public Nan::ObjectWrap, public PerlFoo
 
     std::string name_;
 
-    NodePerlMethod(SV *sv, const char *name, PerlInterpreter *myp): sv_(sv), name_(name), PerlFoo(myp)
+    NodePerlMethod(SV *sv, const char *name, PerlInterpreter *myp): PerlFoo(myp), sv_(sv), name_(name)
     {
         SvREFCNT_inc(sv);
     }
@@ -417,7 +417,7 @@ class NodePerlObject : public Nan::ObjectWrap, public PerlFoo
         return scope.Escape(retval);
     }
 
-    NodePerlObject(SV *sv, PerlInterpreter *myp): sv_(sv), PerlFoo(myp)
+    NodePerlObject(SV *sv, PerlInterpreter *myp): PerlFoo(myp), sv_(sv)
     {
         SvREFCNT_inc(sv);
     }
@@ -671,10 +671,7 @@ class NodePerl : public Nan::ObjectWrap, public PerlFoo
   private:
     void destroy()
     {
-        NodePerl *nodePerl = this;
-
         this->persistent().Reset();
-
         this->~NodePerl();
     }
 

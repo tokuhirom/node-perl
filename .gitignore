@@ -4,3 +4,4 @@ build/
 extern/config.h
 stacktrace-*.log
 .idea/
+.nyc_output

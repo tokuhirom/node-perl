@@ -20,18 +20,16 @@
       ],
       "cflags!": [
         "-fno-exceptions",
-        "-Wno-literal-suffix"
       ],
       "cflags_cc!": [
         "-fno-exceptions",
-        "-Wno-literal-suffix"
       ],
       "cflags": [
         "<!@(perl -MExtUtils::Embed -e ccopts)",
-        "<!@(perl utils/libperl.pl)"
+        "<!@(perl utils/libperl.pl)",
+        "-Wno-cast-function-type"
       ],
       "ccflags": [
-        "-fno-exceptions",
         "-Wno-literal-suffix"
       ],
       "conditions": [
