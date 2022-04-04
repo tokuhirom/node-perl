@@ -18,12 +18,13 @@
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
     "jest": "^26.0.1",
-    "segfault-handler": "^1.3.0",
     "tap": "^14.10.7"
   },
   "scripts": {
     "lint": "./node_modules/.bin/eslint .",
-    "test": "./node_modules/.bin/jest .",
+    "test-jest": "./node_modules/.bin/jest .",
+    "test-tap": "./node_modules/.bin/tap test/*.js",
+    "test": "npm run test-tap",
     "install": "node-gyp clean && node-gyp configure build",
     "debug": "node-gyp clean && node-gyp rebuild --debug"
   },
